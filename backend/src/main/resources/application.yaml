@@ -1,0 +1,19 @@
+server:
+  port: 8080
+spring:
+  application:
+    name: audiora-backend
+app:
+  # Base URL used to build OAuth redirect URIs. Spotify no longer allows 'localhost' hostnames; prefer explicit loopback IP.
+  backendBaseUrl: ${BACKEND_BASE_URL:http://127.0.0.1:8080}
+  frontendBaseUrl: ${FRONTEND_BASE_URL:http://localhost:4200}
+spotify:
+  clientId: ${SPOTIFY_CLIENT_ID:}
+  clientSecret: ${SPOTIFY_CLIENT_SECRET:}
+youtube:
+  clientId: ${YOUTUBE_CLIENT_ID:}
+  clientSecret: ${YOUTUBE_CLIENT_SECRET:}
+logging:
+  level:
+    root: INFO
+    org.springframework.security: INFO
