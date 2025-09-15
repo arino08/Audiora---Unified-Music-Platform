@@ -9,7 +9,7 @@ import { YouTubePlayerService } from './youtube-player.service';
   standalone: true,
   imports: [CommonModule],
   template: `
-    <div class="now-playing panel" *ngIf="current() as cur">
+  <div class="now-playing panel" *ngIf="current() as cur">
       <div class="np-header">
         <div class="art" [class.placeholder]="!cur.image">
           <img *ngIf="cur.image" [src]="cur.image" alt="artwork" />
@@ -19,20 +19,20 @@ import { YouTubePlayerService } from './youtube-player.service';
           <h3 class="title">{{ cur.title }}</h3>
           <div class="sub" *ngIf="isSpotify(cur)">
             <span class="provider-badge spotify">Spotify</span>
-            <span class="artists" *ngIf="(cur as any).artists?.length">{{ (cur as any).artists.join(', ') }}</span>
+            <span class="artists" *ngIf="spotifyArtists(cur).length">{{ spotifyArtists(cur).join(', ') }}</span>
           </div>
           <div class="sub" *ngIf="isYouTube(cur)">
             <span class="provider-badge youtube">YouTube</span>
-            <span class="channel" *ngIf="(cur as any).channel">{{ (cur as any).channel }}</span>
+            <span class="channel" *ngIf="youtubeChannel(cur)">{{ youtubeChannel(cur) }}</span>
           </div>
         </div>
       </div>
       <div class="progress-block" *ngIf="durationMs() > 0">
+        <div class="bar"><div class="fill" [style.width.%]="progressPercent()"></div></div>
         <div class="times">
           <span>{{ positionLabel() }}</span>
           <span>{{ durationLabel() }}</span>
         </div>
-        <input type="range" class="progress" [attr.max]="durationMs()" [value]="seeking() ? seekPreview() : positionMs()" (input)="onSeekPreview($event)" (change)="onSeekCommit($event)" />
       </div>
       <div class="controls-row">
         <button class="btn sm" (click)="togglePlay()">{{ playing() ? 'Pause' : 'Play' }}</button>
@@ -65,8 +65,6 @@ export class NowPlayingPanelComponent implements OnDestroy {
   private interval: any;
   positionMs = signal(0);
   durationMs = signal(0);
-  seeking = signal(false);
-  seekPreview = signal(0);
   playing = computed(() => this.player.isPlaying());
   current = computed(() => this.player.current());
 
@@ -102,6 +100,9 @@ export class NowPlayingPanelComponent implements OnDestroy {
     const total = Math.floor(ms / 1000); const m = Math.floor(total / 60); const s = total % 60; return m + ':' + s.toString().padStart(2,'0');
   }
 
+  spotifyArtists(p: any): string[] { return Array.isArray(p?.artists) ? p.artists : []; }
+  youtubeChannel(p: any): string | null { return p?.channel || null; }
+
   togglePlay() {
     if (this.player.isPlaying()) {
       this.player.pause();
@@ -119,19 +120,5 @@ export class NowPlayingPanelComponent implements OnDestroy {
 
   next() { this.player.next(); }
 
-  onSeekPreview(ev: Event) {
-    const val = +(ev.target as HTMLInputElement).value;
-    this.seeking.set(true); this.seekPreview.set(val);
-  }
-  async onSeekCommit(ev: Event) {
-    const val = +(ev.target as HTMLInputElement).value;
-    this.seeking.set(false); this.seekPreview.set(val); this.positionMs.set(val);
-    const cur = this.player.current();
-    if (!cur) return;
-    if (cur.provider === 'spotify') {
-      await this.spotifySdk.seek(val);
-    } else if (cur.provider === 'youtube') {
-      this.yt.seek(Math.floor(val / 1000));
-    }
-  }
+  progressPercent() { const d = this.durationMs(); return d > 0 ? (this.positionMs() / d) * 100 : 0; }
 }

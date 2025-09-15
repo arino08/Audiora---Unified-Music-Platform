@@ -61,4 +61,7 @@ export class SpotifyWebSdkService {
   async resume() { if (this.player) { await this.player.resume(); } }
   async seek(ms: number) { if (this.player) { await this.player.seek(ms); } }
   async getState(): Promise<any> { return this.player ? this.player.getCurrentState() : null; }
+
+  async setVolume(vol: number) { if (this.player) { try { await this.player.setVolume(vol); } catch {} } }
+  async getVolume(): Promise<number | null> { if (!this.player) return null; try { return this.player.getVolume(); } catch { return null; } }
 }

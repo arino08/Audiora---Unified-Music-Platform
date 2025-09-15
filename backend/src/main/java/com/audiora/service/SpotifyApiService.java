@@ -34,6 +34,16 @@ public class SpotifyApiService {
                 .bodyToMono(String.class));
     }
 
+    public Mono<String> getPlaylistTracksRaw(TokenInfo token, String sessionId, String playlistId) {
+        return ensureValid(token, sessionId).switchIfEmpty(Mono.just(token)).flatMap(t -> api.get()
+                .uri(uriBuilder -> uriBuilder.path("/playlists/{playlistId}/tracks")
+                        .queryParam("limit", 50)
+                        .build(playlistId))
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + t.getAccessToken())
+                .retrieve()
+                .bodyToMono(String.class));
+    }
+
     public Mono<String> getPlaybackStateRaw(TokenInfo token, String sessionId) {
         return ensureValid(token, sessionId).switchIfEmpty(Mono.just(token)).flatMap(t -> api.get()
                 .uri("/me/player")

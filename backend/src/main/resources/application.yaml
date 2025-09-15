@@ -3,10 +3,29 @@ server:
 spring:
   application:
     name: audiora-backend
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${EMAIL_USERNAME:}
+    password: ${EMAIL_PASSWORD:}
+    protocol: smtp
+    test-connection: false
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
 app:
   # Base URL used to build OAuth redirect URIs. Spotify no longer allows 'localhost' hostnames; prefer explicit loopback IP.
   backendBaseUrl: ${BACKEND_BASE_URL:http://127.0.0.1:8080}
   frontendBaseUrl: ${FRONTEND_BASE_URL:http://localhost:4200}
+  email:
+    from: ${EMAIL_FROM:noreply@audiora.com}
 spotify:
   clientId: ${SPOTIFY_CLIENT_ID:}
   clientSecret: ${SPOTIFY_CLIENT_SECRET:}

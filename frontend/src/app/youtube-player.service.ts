@@ -83,4 +83,6 @@ export class YouTubePlayerService {
   seek(seconds: number) { if (this.player) this.player.seekTo(seconds, true); }
   getPositionSeconds(): number { return this.player ? this.player.getCurrentTime() : 0; }
   getDurationSeconds(): number { return this.player ? this.player.getDuration() : 0; }
+  setVolume(v: number) { if (this.player) { try { this.player.setVolume(Math.max(0, Math.min(100, v))); } catch {} } }
+  getVolume(): number | null { return this.player ? this.player.getVolume() : null; }
 }

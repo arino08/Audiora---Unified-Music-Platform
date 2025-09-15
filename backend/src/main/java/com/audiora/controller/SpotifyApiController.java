@@ -8,6 +8,7 @@ import com.audiora.model.TokenInfo;
 import com.audiora.service.SpotifyApiService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -64,6 +65,66 @@ public class SpotifyApiController {
                             "name", name,
                             "tracks", trackCount,
                             "image", image
+                    ));
+                }
+            }
+            return ResponseEntity.ok(Map.of("items", items));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(Map.of("error", "parse_failed", "details", e.getMessage()));
+        }
+    }
+
+    @GetMapping("/playlists/{playlistId}/tracks")
+    public ResponseEntity<?> playlistTracks(@RequestHeader(name = "X-Session-Id", required = false) String sessionId,
+                                           @PathVariable String playlistId) {
+        if (sessionId == null || sessionId.isBlank()) {
+            return ResponseEntity.status(401).body(Map.of("error", "missing_session"));
+        }
+        TokenInfo token = tokenStore.get(sessionId, Provider.SPOTIFY);
+        if (token == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "invalid_session"));
+        }
+        if (token.getExpiresAt() != null && token.getExpiresAt().isBefore(Instant.now())) {
+            return ResponseEntity.status(401).body(Map.of("error", "token_expired"));
+        }
+        String raw = spotifyApiService.getPlaylistTracksRaw(token, sessionId, playlistId).block();
+        if (raw == null) {
+            return ResponseEntity.internalServerError().body(Map.of("error", "spotify_unreachable"));
+        }
+        try {
+            JsonNode root = objectMapper.readTree(raw);
+            List<Map<String, Object>> items = new ArrayList<>();
+            if (root.has("items")) {
+                for (JsonNode item : root.get("items")) {
+                    JsonNode track = item.path("track");
+                    if (track.isNull() || track.path("id").isNull()) continue;
+
+                    String id = track.path("id").asText();
+                    String name = track.path("name").asText();
+                    List<String> artists = new ArrayList<>();
+                    for (JsonNode a : track.path("artists")) {
+                        artists.add(a.path("name").asText());
+                    }
+                    String album = track.path("album").path("name").asText();
+                    long durationMs = track.path("duration_ms").asLong();
+                    String uri = track.path("uri").asText();
+                    String image = null;
+                    JsonNode images = track.path("album").path("images");
+                    if (images.isArray() && images.size() > 0) {
+                        image = images.get(images.size()-1).path("url").asText();
+                    }
+
+                    items.add(Map.of(
+                            "track", Map.of(
+                                    "id", id,
+                                    "name", name,
+                                    "artists", artists,
+                                    "album", album,
+                                    "durationMs", durationMs,
+                                    "uri", uri,
+                                    "image", image,
+                                    "provider", "spotify"
+                            )
                     ));
                 }
             }

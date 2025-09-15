@@ -30,6 +30,23 @@ export class PlayerService {
   activeProvider = signal<'spotify' | 'youtube' | null>(null);
   private endTimer: any;
 
+  private readonly LS_KEY = 'audiora_last_played';
+
+  constructor() {
+    // Restore last played (not auto-playing) if available
+    try {
+      const raw = localStorage.getItem(this.LS_KEY);
+      if (raw) {
+        const parsed: Playable = JSON.parse(raw);
+        if (parsed && parsed.provider && parsed.title) {
+          this.current.set(parsed);
+          this.activeProvider.set(parsed.provider);
+          this.isPlaying.set(false);
+        }
+      }
+    } catch {}
+  }
+
   // callbacks for integration (set by host component)
   onSpotifyPlay?: (track: SpotifyPlayable) => Promise<boolean>;
   onSpotifyPause?: () => Promise<boolean>;
@@ -64,6 +81,8 @@ export class PlayerService {
       this.current.set(item);
       this.activeProvider.set(item.provider);
       this.isPlaying.set(true);
+      // persist last played
+      try { localStorage.setItem(this.LS_KEY, JSON.stringify(item)); } catch {}
       // schedule auto-advance for known-duration items (e.g., Spotify)
       const duration = (item as any).durationMs as number | undefined;
       if (item.provider === 'spotify' && duration && duration > 0) {
