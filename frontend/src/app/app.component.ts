@@ -76,70 +76,86 @@ import { BottomPlayerComponent } from './bottom-player.component';
       right: -2px;
     }
 
-    /* Modern User Profile Styles */
-    .user-chip.modern {
+    /* Modern User Profile Hub */
+    .auth-compact.user {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .user-hub {
+      position: relative;
+    }
+
+    .profile-trigger {
       display: flex;
       align-items: center;
       gap: 12px;
-      padding: 8px 16px;
-      background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05));
-      border: 1px solid rgba(255,255,255,0.15);
-      border-radius: 12px;
-      backdrop-filter: blur(10px);
-      transition: all 0.3s ease;
+      padding: 10px 16px;
+      min-width: 220px;
+      border-radius: 18px;
+      background: linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.05));
+      border: 1px solid rgba(255,255,255,0.18);
+      backdrop-filter: blur(18px);
+      box-shadow: 0 12px 28px -16px rgba(0,0,0,0.6);
+      cursor: pointer;
+      transition: all 0.25s ease;
+      color: var(--color-text);
       position: relative;
-      min-width: 180px;
+      overflow: hidden;
+      isolation: isolate;
     }
 
-    .user-chip.modern:hover {
-      background: linear-gradient(135deg, rgba(255,255,255,0.15), rgba(255,255,255,0.08));
-      border-color: rgba(255,255,255,0.25);
+    .profile-trigger::after {
+      content: '';
+      position: absolute;
+      inset: -40% -20%;
+      background: radial-gradient(circle at top, rgba(255,255,255,0.25), transparent 55%);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      z-index: -1;
+    }
+
+    .profile-trigger:hover,
+    .profile-trigger.active {
+      border-color: rgba(255,255,255,0.28);
       transform: translateY(-1px);
-      box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+      box-shadow: 0 16px 36px -16px rgba(0,0,0,0.65);
     }
 
-    .avatar-container {
-      position: relative;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+    .profile-trigger:hover::after,
+    .profile-trigger.active::after {
+      opacity: 1;
     }
 
-    .avatar-fallback {
-      width: 32px;
-      height: 32px;
-      border-radius: 50%;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    .trigger-avatar {
+      width: 38px;
+      height: 38px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #667eea, #764ba2);
       display: flex;
       align-items: center;
       justify-content: center;
       font-weight: 600;
-      font-size: 14px;
+      font-size: 16px;
       color: white;
+      position: relative;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.25), 0 10px 18px -10px rgba(102,126,234,0.6);
     }
 
-    .avatar-fallback.large {
-      width: 48px;
-      height: 48px;
-      font-size: 20px;
-    }
-
-    .status-indicator {
+    .trigger-avatar .presence-dot {
       position: absolute;
-      bottom: -2px;
-      right: -2px;
       width: 12px;
       height: 12px;
       border-radius: 50%;
+      background: #16ff95;
       border: 2px solid var(--color-bg);
+      bottom: -2px;
+      right: -2px;
+      box-shadow: 0 0 6px rgba(22,255,149,0.6);
     }
 
-    .status-indicator.online {
-      background: #00ff88;
-      box-shadow: 0 0 6px rgba(0,255,136,0.5);
-    }
-
-    .user-info {
+    .trigger-meta {
       display: flex;
       flex-direction: column;
       align-items: flex-start;
@@ -147,41 +163,304 @@ import { BottomPlayerComponent } from './bottom-player.component';
       flex: 1;
     }
 
-    .user-name {
+    .trigger-name {
       font-weight: 600;
       font-size: 14px;
+    }
+
+    .trigger-subtle {
+      font-size: 11px;
+      color: var(--color-text-dim);
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+
+    .chevron {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.18);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--color-text-dim);
+      transition: all 0.25s ease;
+      font-size: 10px;
+    }
+
+    .chevron::before {
+      content: '⌄';
+    }
+
+    .chevron.open {
+      transform: rotate(180deg);
+      color: var(--color-text);
+      border-color: rgba(255,255,255,0.3);
+    }
+
+    .profile-dropdown {
+      position: absolute;
+      top: calc(100% + 12px);
+      right: 0;
+      width: 320px;
+      border-radius: 20px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: linear-gradient(155deg, rgba(18,26,38,0.98), rgba(10,16,24,0.98));
+      box-shadow: 0 20px 45px rgba(0,0,0,0.45);
+      backdrop-filter: blur(28px);
+      overflow: hidden;
+      animation: slideDown 0.22s ease;
+      z-index: 1200;
+    }
+
+    .dropdown-header {
+      display: flex;
+      gap: 16px;
+      padding: 22px 24px 18px;
+      background: linear-gradient(135deg, rgba(102,126,234,0.2), rgba(118,75,162,0.08));
+    }
+
+    .header-avatar {
+      position: relative;
+      width: 58px;
+      height: 58px;
+      border-radius: 18px;
+      background: linear-gradient(135deg, #6a11cb, #2575fc);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      font-weight: 600;
+      color: white;
+      box-shadow: 0 12px 32px -18px rgba(37,117,252,0.8);
+      overflow: hidden;
+    }
+
+    .header-avatar .header-glow {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at top, rgba(255,255,255,0.5), transparent 70%);
+      opacity: 0.4;
+      mix-blend-mode: screen;
+    }
+
+    .header-details {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .header-name {
+      font-size: 18px;
+      font-weight: 600;
       color: var(--color-text);
     }
 
-    .user-status {
-      font-size: 12px;
-      color: #00ff88;
-      font-weight: 500;
+    .header-email {
+      font-size: 13px;
+      color: var(--color-text-dim);
+      word-break: break-all;
     }
 
-    .dropdown-arrow {
+    .header-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .badge {
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: var(--color-text);
+    }
+
+    .badge-youtube {
+      background: rgba(255, 0, 0, 0.18);
+      border-color: rgba(255, 0, 0, 0.35);
+      color: #ff6b6b;
+    }
+
+    .badge-spotify {
+      background: rgba(29,185,84,0.15);
+      border-color: rgba(29,185,84,0.28);
+      color: #1db954;
+    }
+
+    .badge-warn {
+      background: rgba(255,165,0,0.15);
+      border-color: rgba(255,165,0,0.28);
+      color: #ffa500;
+    }
+
+    .dropdown-alert {
+      display: flex;
+      gap: 12px;
+      padding: 14px 20px;
+      background: rgba(255,165,0,0.14);
+      color: #ffd194;
+      border-top: 1px solid rgba(255,255,255,0.04);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .alert-icon {
+      font-size: 18px;
+      line-height: 1;
+    }
+
+    .alert-title {
+      font-weight: 600;
+      font-size: 13px;
+      margin-bottom: 4px;
+    }
+
+    .alert-text {
+      font-size: 12px;
+      color: rgba(255,255,255,0.78);
+    }
+
+    .dropdown-stats {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      padding: 18px 20px;
+    }
+
+    .stat-card {
+      padding: 12px;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .stat-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--color-text-dim);
+    }
+
+    .stat-value {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--color-text);
+    }
+
+    .dropdown-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 0 20px 18px;
+    }
+
+    .dropdown-button {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+      border: 1px solid transparent;
+      border-radius: 14px;
+      padding: 12px 16px;
+      background: rgba(255,255,255,0.03);
+      color: var(--color-text);
+      font: inherit;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-align: left;
+    }
+
+    .dropdown-button .button-icon {
+      font-size: 16px;
+      width: 24px;
+      text-align: center;
+    }
+
+    .dropdown-button .button-label {
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .dropdown-button .button-desc {
       font-size: 12px;
       color: var(--color-text-dim);
-      transition: transform 0.2s ease;
     }
 
-    .user-chip.modern:hover .dropdown-arrow {
-      transform: rotate(180deg);
+    .dropdown-button:hover {
+      background: rgba(255,255,255,0.08);
+      border-color: rgba(255,255,255,0.12);
+      transform: translateY(-1px);
     }
 
-    .user-menu.modern {
-      position: absolute;
-      top: calc(100% + 8px);
-      right: 0;
-      min-width: 280px;
-      background: linear-gradient(145deg, rgba(25, 35, 45, 0.98), rgba(15, 22, 30, 0.98));
-      backdrop-filter: blur(20px);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 16px;
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
-      z-index: 1000;
-      overflow: hidden;
-      animation: slideDown 0.2s ease;
+    .dropdown-button.sync:hover {
+      background: rgba(29,185,84,0.12);
+      border-color: rgba(29,185,84,0.25);
+      color: #1db954;
+    }
+
+    .dropdown-button.settings:hover {
+      background: rgba(59,130,246,0.12);
+      border-color: rgba(59,130,246,0.25);
+      color: #93c5fd;
+    }
+
+    .dropdown-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px 18px;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      background: rgba(255,255,255,0.02);
+    }
+
+    .footer-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--color-text-dim);
+    }
+
+    .footer-status .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #16ff95;
+      box-shadow: 0 0 6px rgba(22,255,149,0.6);
+    }
+
+    .footer-logout {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border: none;
+      border-radius: 999px;
+      padding: 10px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      background: linear-gradient(135deg, rgba(255,82,82,0.85), rgba(244,67,54,0.9));
+      color: white;
+      cursor: pointer;
+      box-shadow: 0 12px 24px -18px rgba(255,82,82,0.8);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .footer-logout:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 28px -16px rgba(255,82,82,0.9);
+    }
+
+    .footer-logout span:last-child {
+      font-size: 16px;
     }
 
     @keyframes slideDown {
@@ -193,132 +472,6 @@ import { BottomPlayerComponent } from './bottom-player.component';
         opacity: 1;
         transform: translateY(0) scale(1);
       }
-    }
-
-    .menu-profile {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      padding: 20px;
-      background: linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
-    }
-
-    .profile-avatar {
-      position: relative;
-    }
-
-    .profile-info {
-      flex: 1;
-    }
-
-    .profile-name {
-      font-weight: 600;
-      font-size: 16px;
-      color: var(--color-text);
-      margin-bottom: 4px;
-    }
-
-    .profile-email {
-      font-size: 13px;
-      color: var(--color-text-dim);
-      margin-bottom: 8px;
-    }
-
-    .profile-status {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 12px;
-      color: #00ff88;
-    }
-
-    .status-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: #00ff88;
-      animation: pulse 2s infinite;
-    }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
-    }
-
-    .menu-divider {
-      height: 1px;
-      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
-      margin: 0 20px;
-    }
-
-    .menu-item {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      width: 100%;
-      padding: 12px 20px;
-      background: none;
-      border: none;
-      color: var(--color-text);
-      font: inherit;
-      text-align: left;
-      cursor: pointer;
-      transition: all 0.2s ease;
-    }
-
-    .menu-item:hover {
-      background: rgba(255,255,255,0.08);
-    }
-
-    .menu-item.sync:hover {
-      background: rgba(29, 185, 84, 0.1);
-      color: #1db954;
-    }
-
-    .menu-item.settings:hover {
-      background: rgba(59, 130, 246, 0.1);
-      color: #3b82f6;
-    }
-
-    .menu-item.logout:hover {
-      background: rgba(239, 68, 68, 0.1);
-      color: #ef4444;
-    }
-
-    .menu-icon {
-      font-size: 16px;
-      width: 20px;
-      text-align: center;
-    }
-
-    .menu-content {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-
-    .menu-label {
-      font-weight: 500;
-      font-size: 14px;
-    }
-
-    .menu-desc {
-      font-size: 12px;
-      color: var(--color-text-dim);
-    }
-
-    .menu-warning {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 12px 20px;
-      background: rgba(255, 165, 0, 0.1);
-      color: #ffa500;
-      font-size: 13px;
-    }
-
-    .warning-icon {
-      font-size: 16px;
     }
 
     /* Enhanced Navigation Tabs */
@@ -387,6 +540,48 @@ import { BottomPlayerComponent } from './bottom-player.component';
       font-weight: 600;
     }
 
+    .menu-toggle {
+      display: none;
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.16);
+      background: rgba(255,255,255,0.05);
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      flex-direction: column;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .menu-toggle span {
+      width: 18px;
+      height: 2px;
+      background: rgba(255,255,255,0.85);
+      border-radius: 999px;
+      display: block;
+      transition: transform 0.2s ease;
+    }
+
+    .app-shell.sidebar-open .menu-toggle span:nth-child(1) {
+      transform: translateY(6px) rotate(45deg);
+    }
+    .app-shell.sidebar-open .menu-toggle span:nth-child(2) {
+      opacity: 0;
+    }
+    .app-shell.sidebar-open .menu-toggle span:nth-child(3) {
+      transform: translateY(-6px) rotate(-45deg);
+    }
+
+    .mobile-sidebar-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(5,5,10,0.65);
+      backdrop-filter: blur(6px);
+      z-index: 80;
+    }
+
     /* Enhanced Header */
     .main-header.modern {
       background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05));
@@ -395,6 +590,9 @@ import { BottomPlayerComponent } from './bottom-player.component';
       position: sticky;
       top: 0;
       z-index: 100;
+        box-shadow: 0 4px 32px -8px rgba(0,0,0,0.25);
+        padding: 16px 24px;
+        border-radius: 16px;
     }
 
     .brand-container {
@@ -439,6 +637,54 @@ import { BottomPlayerComponent } from './bottom-player.component';
       letter-spacing: 1px;
       font-weight: 500;
       opacity: 0.8;
+    }
+
+    @media (max-width: 980px) {
+      .menu-toggle {
+        display: inline-flex;
+      }
+      .brand-container {
+        flex: 1;
+        justify-content: space-between;
+      }
+      .page-title.modern {
+        font-size: 24px;
+      }
+      .app-sidebar {
+        position: fixed;
+        inset: 0 auto 0 0;
+        width: min(80vw, 320px);
+        max-width: 100%;
+        transform: translateX(-100%);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        box-shadow: 12px 0 32px -18px rgba(0,0,0,0.65);
+        z-index: 900;
+        height: 100%;
+      }
+      .app-sidebar.mobile-open {
+        transform: translateX(0);
+      }
+      .app-shell.sidebar-open .header-top {
+        position: relative;
+        z-index: 100;
+      }
+      .auth-compact.user .profile-trigger {
+        width: 100%;
+        justify-content: flex-start;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .main-header.modern {
+        padding: 14px 18px;
+      }
+      .header-controls {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .auth-compact.user .profile-trigger {
+        min-width: 0;
+      }
     }
 
     /* Enhanced Loading States */
@@ -513,11 +759,6 @@ import { BottomPlayerComponent } from './bottom-player.component';
     .main-header, .auth-compact, .nav-tabs {
       animation: fadeInUp 0.6s ease;
     }
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-left: 4px;
-    }
 
     .menu-warning {
       color: #ffa500;
@@ -531,8 +772,8 @@ import { BottomPlayerComponent } from './bottom-player.component';
     @keyframes slideIn { from { opacity:0; transform: scale(0.95) translateY(-20px);} to { opacity:1; transform: scale(1) translateY(0);} }
   `],
   template: `
-    <div class="app-shell">
-      <aside class="app-sidebar">
+    <div class="app-shell" [class.sidebar-open]="mobileSidebarOpen()">
+      <aside class="app-sidebar" [class.mobile-open]="mobileSidebarOpen()">
         <audiora-sidebar
           [sessionId]="sessionId()"
           [spotifyPlaylists]="spotifyPlaylists()"
@@ -546,9 +787,15 @@ import { BottomPlayerComponent } from './bottom-player.component';
           (clear)="clearSession()"
         />
       </aside>
+      <div class="mobile-sidebar-backdrop" *ngIf="mobileSidebarOpen()" (click)="closeMobileSidebar()"></div>
   <main class="app-main">
         <header class="main-header modern">
           <div class="header-top">
+            <button type="button" class="menu-toggle" (click)="toggleMobileSidebar()" [attr.aria-expanded]="mobileSidebarOpen()" aria-label="Toggle navigation">
+              <span></span>
+              <span></span>
+              <span></span>
+            </button>
             <div class="brand-container">
               <div class="brand-icon">🎵</div>
               <h1 class="page-title modern">Audiora</h1>
@@ -578,60 +825,78 @@ import { BottomPlayerComponent } from './bottom-player.component';
                 </button>
               </div>
               <div class="auth-compact user" *ngIf="!auth.isLoading() && auth.isAuthenticated()">
-                <button type="button" class="user-chip modern" (click)="toggleUserMenu()" [title]="auth.userEmail()">
-                  <div class="avatar-container">
-                    <span class="avatar-fallback">{{ auth.userName().charAt(0).toUpperCase() }}</span>
-                    <div class="status-indicator online"></div>
-                  </div>
-                  <div class="user-info">
-                    <span class="user-name">{{ shortUserName() }}</span>
-                    <span class="user-status">Online</span>
-                  </div>
-                  <span class="dropdown-arrow">⌄</span>
-                  <span *ngIf="!auth.isVerified()" class="unverified-badge" title="Email not verified">!</span>
-                </button>
-                <div *ngIf="showUserMenu" class="user-menu modern" (mouseleave)="showUserMenu=false">
-                  <div class="menu-profile">
-                    <div class="profile-avatar">
-                      <span class="avatar-fallback large">{{ auth.userName().charAt(0).toUpperCase() }}</span>
-                      <div class="status-indicator online"></div>
+                <div class="user-hub">
+                  <button type="button" class="profile-trigger" (click)="toggleUserMenu()" [class.active]="showUserMenu" [title]="auth.userEmail()">
+                    <div class="trigger-avatar">
+                      <span>{{ userInitial() }}</span>
+                      <span class="presence-dot" title="Online"></span>
                     </div>
-                    <div class="profile-info">
-                      <div class="profile-name">{{ auth.userName() }}</div>
-                      <div class="profile-email">{{ auth.userEmail() }}</div>
-                      <div class="profile-status">
-                        <span class="status-dot"></span>
-                        <span>Active now</span>
+                    <div class="trigger-meta">
+                      <span class="trigger-name">{{ shortUserName() }}</span>
+                      <span class="trigger-subtle">Connected • {{ spotifyPlaylists().length ? 'YouTube + Spotify' : 'YouTube' }}</span>
+                    </div>
+                    <span class="chevron" [class.open]="showUserMenu"></span>
+                  </button>
+                  <div *ngIf="showUserMenu" class="profile-dropdown" (mouseleave)="showUserMenu=false">
+                    <div class="dropdown-header">
+                      <div class="header-avatar">
+                        <span>{{ userInitial() }}</span>
+                        <div class="header-glow"></div>
+                      </div>
+                      <div class="header-details">
+                        <div class="header-name">{{ auth.userName() || shortUserName() }}</div>
+                        <div class="header-email">{{ auth.userEmail() || 'Connected with Google' }}</div>
+                        <div class="header-badges">
+                          <span class="badge badge-youtube">YouTube Connected</span>
+                          <span *ngIf="spotifyPlaylists().length" class="badge badge-spotify">Spotify Linked</span>
+                          <span *ngIf="!auth.isVerified()" class="badge badge-warn">Email Unverified</span>
+                        </div>
                       </div>
                     </div>
+                    <div *ngIf="!auth.isVerified()" class="dropdown-alert">
+                      <span class="alert-icon">⚠️</span>
+                      <div>
+                        <div class="alert-title">Verify your email</div>
+                        <div class="alert-text">Complete verification to enable backups.</div>
+                      </div>
+                    </div>
+                    <div class="dropdown-stats">
+                      <div class="stat-card">
+                        <span class="stat-label">Playlists synced</span>
+                        <span class="stat-value">{{ spotifyPlaylists().length + youtubePlaylists().length }}</span>
+                      </div>
+                      <div class="stat-card">
+                        <span class="stat-label">Providers linked</span>
+                        <span class="stat-value">{{ 1 + (spotifyPlaylists().length ? 1 : 0) }}</span>
+                      </div>
+                    </div>
+                    <div class="dropdown-actions">
+                      <button type="button" class="dropdown-button sync" (click)="likedSongs.manualSync(); showUserMenu=false">
+                        <span class="button-icon">🔄</span>
+                        <div>
+                          <div class="button-label">Sync liked songs</div>
+                          <div class="button-desc">Grab your latest favorites</div>
+                        </div>
+                      </button>
+                      <button type="button" class="dropdown-button settings" (click)="openSettings()">
+                        <span class="button-icon">⚙️</span>
+                        <div>
+                          <div class="button-label">Settings</div>
+                          <div class="button-desc">Preferences & privacy</div>
+                        </div>
+                      </button>
+                    </div>
+                    <div class="dropdown-footer">
+                      <div class="footer-status">
+                        <span class="status-dot"></span>
+                        <span>Session active</span>
+                      </div>
+                      <button type="button" class="footer-logout" (click)="showUserMenu=false; auth.logout()">
+                        <span>Sign out</span>
+                        <span>→</span>
+                      </button>
+                    </div>
                   </div>
-                  <div class="menu-divider"></div>
-                  <div *ngIf="!auth.isVerified()" class="menu-warning">
-                    <span class="warning-icon">⚠️</span>
-                    <span>Please verify your email</span>
-                  </div>
-                  <button class="menu-item sync" (click)="likedSongs.manualSync()">
-                    <span class="menu-icon">🔄</span>
-                    <div class="menu-content">
-                      <span class="menu-label">Sync Liked Songs</span>
-                      <span class="menu-desc">Update your library</span>
-                    </div>
-                  </button>
-                  <button class="menu-item settings" (click)="openSettings()">
-                    <span class="menu-icon">⚙️</span>
-                    <div class="menu-content">
-                      <span class="menu-label">Settings</span>
-                      <span class="menu-desc">Preferences & privacy</span>
-                    </div>
-                  </button>
-                  <div class="menu-divider"></div>
-                  <button class="menu-item logout" (click)="auth.logout()">
-                    <span class="menu-icon">🚪</span>
-                    <div class="menu-content">
-                      <span class="menu-label">Sign out</span>
-                      <span class="menu-desc">Disconnect from Audiora</span>
-                    </div>
-                  </button>
                 </div>
               </div>
               <div class="auth-loading modern" *ngIf="auth.isLoading()">
@@ -905,9 +1170,7 @@ import { BottomPlayerComponent } from './bottom-player.component';
 
         <audiora-now-playing-panel />
       </main>
-      <footer class="bottom-bar" *ngIf="nowPlaying()">
-        <audiora-bottom-player />
-      </footer>
+      <audiora-bottom-player *ngIf="nowPlaying()" />
     </div>
   `
 })
@@ -944,11 +1207,19 @@ export class AppComponent implements OnInit {
 
   // auth compact UI state
   showUserMenu = false;
+  mobileSidebarOpen = signal(false);
 
   shortUserName() {
     const name = this.auth.userName();
     if (!name) return 'User';
     return name.split(' ')[0];
+  }
+
+  userInitial() {
+    const raw = (this.auth.userName() || this.auth.userEmail() || '').trim();
+    if (!raw) return '?';
+    const letter = raw.charAt(0);
+    return letter ? letter.toUpperCase() : '?';
   }
 
   toggleUserMenu() {
@@ -1014,7 +1285,10 @@ export class AppComponent implements OnInit {
     });
   }
 
-  setTab(tab: 'for-you'|'library'|'playlists'){ this.activeTab.set(tab); }
+  setTab(tab: 'for-you'|'library'|'playlists'){ this.activeTab.set(tab); this.closeMobileSidebar(); }
+
+  toggleMobileSidebar() { this.mobileSidebarOpen.update(open => !open); }
+  closeMobileSidebar() { this.mobileSidebarOpen.set(false); }
 
   ngOnInit(): void {
     // Re-run once after Angular initializes (in case constructor ran before location updated)
@@ -1180,6 +1454,7 @@ export class AppComponent implements OnInit {
     this.playlistProvider.set('youtube');
     this.selectedYouTubePlaylistId.set(p.id);
     this.fetchYouTubePlaylistTracks(p.id);
+    this.closeMobileSidebar();
   }
 
   fetchYouTubePlaylistTracks(id: string) {
@@ -1205,6 +1480,7 @@ export class AppComponent implements OnInit {
     this.selectedPlaylist.set(p);
     this.playlistProvider.set('spotify');
     this.fetchSpotifyPlaylistTracks(p.id);
+    this.closeMobileSidebar();
   }
 
   fetchSpotifyPlaylistTracks(id: string) {
@@ -1378,6 +1654,7 @@ export class AppComponent implements OnInit {
     this.clearPlaylistSelection();
     this.viewingLikedSongs.set(true);
     this.playlistTracks.set(this.likedSongs.likedTracks());
+    this.closeMobileSidebar();
   }
 
   playPlaylistFromStart() {

@@ -26,11 +26,18 @@ export class PlayerService {
   isPlaying = signal<boolean>(false);
   // simple queue
   queue = signal<Playable[]>([]);
+  // recently played stack for previous navigation
+  history = signal<Playable[]>([]);
+  // future stack for forward navigation
+  future = signal<Playable[]>([]);
+  private readonly HISTORY_LIMIT = 50;
   // active provider convenience
   activeProvider = signal<'spotify' | 'youtube' | null>(null);
   private endTimer: any;
 
   private readonly LS_KEY = 'audiora_last_played';
+  private readonly HISTORY_KEY = 'audiora_history_stack';
+  private readonly FUTURE_KEY = 'audiora_future_stack';
 
   constructor() {
     // Restore last played (not auto-playing) if available
@@ -42,6 +49,27 @@ export class PlayerService {
           this.current.set(parsed);
           this.activeProvider.set(parsed.provider);
           this.isPlaying.set(false);
+        }
+      }
+    } catch {}
+
+    // Restore navigation stacks from session storage when available
+    try {
+      const histRaw = sessionStorage.getItem(this.HISTORY_KEY);
+      if (histRaw) {
+        const parsed = JSON.parse(histRaw) as Playable[];
+        if (Array.isArray(parsed) && parsed.length) {
+          this.history.set(parsed);
+        }
+      }
+    } catch {}
+
+    try {
+      const futureRaw = sessionStorage.getItem(this.FUTURE_KEY);
+      if (futureRaw) {
+        const parsed = JSON.parse(futureRaw) as Playable[];
+        if (Array.isArray(parsed) && parsed.length) {
+          this.future.set(parsed);
         }
       }
     } catch {}
@@ -60,11 +88,12 @@ export class PlayerService {
     if (cb.onYouTubeStop) this.onYouTubeStop = cb.onYouTubeStop;
   }
 
-  async play(item: Playable, append = false) {
+  async play(item: Playable, append = false, options?: { suppressHistory?: boolean }) {
     if (append && this.current()) {
       this.queue.update(q => [...q, item]);
       return;
     }
+    const previous = this.current();
     // switching provider? stop other
     if (this.activeProvider() && this.activeProvider() !== item.provider) {
       await this.pause(); // pause current first
@@ -78,6 +107,13 @@ export class PlayerService {
       ok = await this.onYouTubePlay(item as YouTubePlayable);
     }
     if (ok) {
+      if (!append && !options?.suppressHistory) {
+        if (previous && !this.samePlayable(previous, item)) {
+          this.pushToHistory(previous);
+        }
+        this.future.set([]);
+        this.persistStacks();
+      }
       this.current.set(item);
       this.activeProvider.set(item.provider);
       this.isPlaying.set(true);
@@ -115,7 +151,42 @@ export class PlayerService {
     }
     const [head, ...rest] = q;
     this.queue.set(rest);
+    this.future.set([]);
+    this.persistStacks();
     await this.play(head, false);
+  }
+
+  async previous() {
+    if (this.endTimer) { clearTimeout(this.endTimer); this.endTimer = null; }
+    const hist = this.history();
+    const cur = this.current();
+    if (hist.length === 0) {
+      if (cur) {
+        await this.play(cur, false, { suppressHistory: true });
+      }
+      return;
+    }
+    if (cur) {
+      this.future.update(stack => [...stack, cur]);
+    }
+    const prev = hist[hist.length - 1];
+    this.history.set(hist.slice(0, hist.length - 1));
+    this.persistStacks();
+    await this.play(prev, false, { suppressHistory: true });
+  }
+
+  async forward() {
+    if (this.endTimer) { clearTimeout(this.endTimer); this.endTimer = null; }
+    const future = this.future();
+    if (future.length === 0) return;
+    const cur = this.current();
+    const nextUp = future[future.length - 1];
+    this.future.set(future.slice(0, future.length - 1));
+    if (cur && !this.samePlayable(cur, nextUp)) {
+      this.pushToHistory(cur);
+    }
+    this.persistStacks();
+    await this.play(nextUp, false, { suppressHistory: true });
   }
 
   clearQueue() {
@@ -127,5 +198,35 @@ export class PlayerService {
     // If a timer is present (Spotify scheduling) clear it to avoid duplicate next
     if (this.endTimer) { clearTimeout(this.endTimer); this.endTimer = null; }
     this.next();
+  }
+
+  private pushToHistory(track: Playable) {
+    this.history.update(hist => {
+      let next = [...hist, track];
+      if (next.length > this.HISTORY_LIMIT) {
+        next = next.slice(next.length - this.HISTORY_LIMIT);
+      }
+      return next;
+    });
+    this.persistStacks();
+  }
+
+  private samePlayable(a: Playable, b: Playable): boolean {
+    if (a.provider !== b.provider) return false;
+    if (a.provider === 'spotify' && b.provider === 'spotify') {
+      const sa = a as SpotifyPlayable; const sb = b as SpotifyPlayable;
+      return (!!sa.uri && !!sb.uri && sa.uri === sb.uri) || (!!sa.id && !!sb.id && sa.id === sb.id);
+    }
+    if (a.provider === 'youtube' && b.provider === 'youtube') {
+      return (a as YouTubePlayable).videoId === (b as YouTubePlayable).videoId;
+    }
+    return false;
+  }
+
+  private persistStacks() {
+    try {
+      sessionStorage.setItem(this.HISTORY_KEY, JSON.stringify(this.history()));
+      sessionStorage.setItem(this.FUTURE_KEY, JSON.stringify(this.future()));
+    } catch {}
   }
 }

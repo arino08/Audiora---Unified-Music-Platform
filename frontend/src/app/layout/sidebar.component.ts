@@ -357,7 +357,7 @@ import { AuthService } from '../auth.service';
       display: flex;
       flex-direction: column;
       gap: var(--space-1);
-      max-height: 320px;
+      max-height: 520px;
       overflow-y: auto;
       padding-right: 4px;
     }
@@ -398,6 +398,37 @@ import { AuthService } from '../auth.service';
     .playlist-icon.youtube {
       background: linear-gradient(135deg, #ff0000, #ff4444);
       color: white;
+    }
+
+    @media (max-width: 980px) {
+      :host { height: auto; }
+      nav.sidebar-inner {
+        height: 100vh;
+        max-height: none;
+        border-right: none;
+        border-bottom: 1px solid rgba(255,255,255,.08);
+        padding: var(--space-4) var(--space-3) var(--space-4);
+        overflow-y: auto;
+      }
+      .spacer { display: none; }
+      .session-section {
+        border-top: none;
+        padding-top: 0;
+      }
+    }
+
+    @media (max-width: 640px) {
+      nav.sidebar-inner {
+        gap: var(--space-4);
+      }
+      .sidebar-playlists {
+        max-height: 260px;
+      }
+      .session-section {
+        flex-direction: column;
+        gap: var(--space-2);
+        align-items: flex-start;
+      }
     }
 
     .playlist-cover {

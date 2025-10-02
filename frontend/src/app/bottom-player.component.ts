@@ -23,469 +23,586 @@ import { LikedSongsService } from './liked-songs.service';
     ])
   ],
   template: `
-    <div class="bottom-player liquid-glass-enhanced" *ngIf="current() as cur" [class.playing]="playing()">
-      <div class="bp-left">
-        <div class="art-container liquid-morph" [@trackChange]="cur.title">
-          <div class="art glass-glow" [class.placeholder]="!cur.image">
-            <img *ngIf="cur.image" [src]="cur.image" alt="art" />
-            <div *ngIf="!cur.image" class="art-placeholder">♪</div>
-          </div>
-          <div class="art-glow" *ngIf="cur.image && playing()"></div>
-        </div>
-        <div class="meta">
-          <div class="title truncate" [@trackChange]="cur.title">{{ cur.title }}</div>
-          <div class="sub muted truncate" [@trackChange]="spotifyArtists(cur).join(',') || displayProvider(cur)">
-            <ng-container *ngIf="isSpotify(cur) && spotifyArtists(cur).length; else providerOnly">{{ spotifyArtists(cur).join(', ') }}</ng-container>
-            <ng-template #providerOnly>{{ displayProvider(cur) }}</ng-template>
-          </div>
-        </div>
-        <button class="like-btn liquid-glass glass-ripple" [class.liked]="isLiked(cur)" (click)="toggleLike(cur)" title="Like">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
-          </svg>
-        </button>
-      </div>
-      <div class="bp-center">
-        <div class="transport">
-          <button class="t-btn liquid-glass" (click)="previous()" title="Previous">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polygon points="19,20 9,12 19,4"></polygon>
-              <line x1="5" y1="19" x2="5" y2="5"></line>
-            </svg>
-          </button>
-          <button class="t-btn primary liquid-glass-enhanced glass-glow" (click)="togglePlay()" title="Play/Pause" [class.pulsing]="playing()">
-            <svg *ngIf="!playing()" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-              <polygon points="5,3 19,12 5,21"></polygon>
-            </svg>
-            <svg *ngIf="playing()" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-              <rect x="6" y="4" width="4" height="16"></rect>
-              <rect x="14" y="4" width="4" height="16"></rect>
-            </svg>
-          </button>
-          <button class="t-btn liquid-glass" (click)="next()" title="Next">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polygon points="5,4 15,12 5,20"></polygon>
-              <line x1="19" y1="5" x2="19" y2="19"></line>
-            </svg>
-          </button>
-        </div>
-        <div class="progress-stack">
-          <span class="time">{{ positionLabel() }}</span>
-          <div class="progress-container" (click)="scrub($event)" (mousemove)="preview($event)" (mouseleave)="hovering=false">
-            <div class="progress-line">
-              <div class="fill" [style.width.%]="progressPercent()"></div>
-              <div class="progress-thumb" [style.left.%]="progressPercent()"></div>
-              <div class="hover" *ngIf="hovering" [style.left.%]="hoverPercent"></div>
+    <div class="bottom-player aurora" *ngIf="current() as cur" [class.playing]="playing()">
+      <div class="player-backdrop" [style.background-image]="cur.image ? 'url(' + cur.image + ')' : ''"></div>
+      <div class="player-shell">
+        <div class="primary-row">
+          <div class="meta-cluster">
+            <div class="art-stack" [@trackChange]="cur.title">
+              <div class="art-frame" [class.placeholder]="!cur.image">
+                <img *ngIf="cur.image" [src]="cur.image" alt="art" />
+                <div *ngIf="!cur.image" class="art-icon">♪</div>
+              </div>
+              <div class="art-ring" *ngIf="playing()"></div>
             </div>
+            <div class="meta-copy">
+              <div class="meta-header">
+                <div class="title truncate" [@trackChange]="cur.title">{{ cur.title }}</div>
+                <span class="provider-pill" [class.spotify]="isSpotify(cur)" [class.youtube]="!isSpotify(cur)">{{ displayProvider(cur) }}</span>
+              </div>
+              <div class="meta-footer" [@trackChange]="spotifyArtists(cur).join(',') || displayProvider(cur)">
+                <ng-container *ngIf="isSpotify(cur) && spotifyArtists(cur).length; else providerOnly">
+                  <span class="artists truncate">{{ spotifyArtists(cur).join(', ') }}</span>
+                </ng-container>
+                <ng-template #providerOnly>
+                  <span class="artists truncate">{{ displayProvider(cur) }}</span>
+                </ng-template>
+              </div>
+            </div>
+            <button type="button" class="like-chip" [class.liked]="isLiked(cur)" (click)="toggleLike(cur)" title="Toggle like">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+              </svg>
+            </button>
+          </div>
+          <div class="transport-cluster">
+            <button type="button" class="t-btn ghost" (click)="previous()" title="Previous" [disabled]="!canGoBack()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="19,20 9,12 19,4"></polygon>
+                <line x1="5" y1="19" x2="5" y2="5"></line>
+              </svg>
+            </button>
+            <button type="button" class="t-btn primary" (click)="togglePlay()" title="Play/Pause" [class.pulsing]="playing()">
+              <svg *ngIf="!playing()" viewBox="0 0 24 24" fill="currentColor">
+                <polygon points="5,3 19,12 5,21"></polygon>
+              </svg>
+              <svg *ngIf="playing()" viewBox="0 0 24 24" fill="currentColor">
+                <rect x="6" y="4" width="4" height="16"></rect>
+                <rect x="14" y="4" width="4" height="16"></rect>
+              </svg>
+              <span class="pulse-ring" *ngIf="playing()"></span>
+            </button>
+            <button type="button" class="t-btn ghost" (click)="next()" title="Next">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="5,4 15,12 5,20"></polygon>
+                <line x1="19" y1="5" x2="19" y2="19"></line>
+              </svg>
+            </button>
+            <button type="button" class="t-btn ghost" (click)="forward()" title="Forward" [disabled]="!canGoForward()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="13 5 19 5 19 11"></polyline>
+                <path d="M19 5a7 7 0 1 0 2 5.3"></path>
+                <polyline points="5 13 9 17 13 13"></polyline>
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div class="timeline-shell">
+          <span class="time">{{ positionLabel() }}</span>
+          <div class="timeline-track" (click)="scrub($event)" (mousemove)="preview($event)" (mouseleave)="hovering=false">
+            <div class="track-fill" [style.width.%]="progressPercent()"></div>
+            <div class="track-handle" [style.left.%]="progressPercent()"></div>
+            <div class="track-preview" *ngIf="hovering" [style.left.%]="hoverPercent"></div>
           </div>
           <span class="time">{{ durationLabel() }}</span>
         </div>
       </div>
-      <div class="bp-right">
-        <div class="volume-container">
-          <button class="volume-btn liquid-glass" (click)="toggleMute()" title="Volume">
-            <svg *ngIf="volume() > 50" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polygon points="11,5 6,9 2,9 2,15 6,15 11,19"></polygon>
-              <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
-            </svg>
-            <svg *ngIf="volume() <= 50 && volume() > 0" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polygon points="11,5 6,9 2,9 2,15 6,15 11,19"></polygon>
-              <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
-            </svg>
-            <svg *ngIf="volume() === 0" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polygon points="11,5 6,9 2,9 2,15 6,15 11,19"></polygon>
-              <line x1="23" y1="9" x2="17" y2="15"></line>
-              <line x1="17" y1="9" x2="23" y2="15"></line>
-            </svg>
-          </button>
-          <div class="volume-slider" [class.visible]="showVolumeSlider()">
-            <input type="range" min="0" max="100" [value]="volume()" (input)="onVolumeInput($event)" (change)="commitVolume()" />
-          </div>
-        </div>
-        <button class="queue-btn liquid-glass" title="Queue">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="8" y1="6" x2="21" y2="6"></line>
-            <line x1="8" y1="12" x2="21" y2="12"></line>
-            <line x1="8" y1="18" x2="21" y2="18"></line>
-            <line x1="3" y1="6" x2="3.01" y2="6"></line>
-            <line x1="3" y1="12" x2="3.01" y2="12"></line>
-            <line x1="3" y1="18" x2="3.01" y2="18"></line>
-          </svg>
-        </button>
-      </div>
     </div>
   `,
   styles: [`
-  .bottom-player {
-    display: grid;
-    grid-template-columns: 520px 800px 440px;
-    width: 100%;
-    align-items: center;
-    gap: 32px;
-    height: 90px;
-    backdrop-filter: blur(40px) saturate(180%);
-    background: linear-gradient(135deg, rgba(20,26,34,.85), rgba(12,16,22,.90));
-    border-top: 1px solid rgba(255,255,255,.08);
-    position: relative;
-    overflow: hidden;
-    z-index: var(--z-content);
+  :host {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + clamp(16px, 4vw, 40px));
+    display: flex;
+    justify-content: center;
+    padding: 0 clamp(16px, 5vw, 72px);
+    pointer-events: none;
+    z-index: 120;
   }
 
-  .bottom-player:before {
-    content: "";
+  .bottom-player.aurora {
+    position: relative;
+    padding: 18px 22px 16px;
+    width: min(720px, calc(100% - 32px));
+    pointer-events: auto;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    background: linear-gradient(135deg, rgba(18,24,37,0.94), rgba(8,12,22,0.96));
+    backdrop-filter: blur(26px) saturate(185%);
+    overflow: hidden;
+    border-radius: 20px 20px 16px 16px;
+    box-shadow: 0 -14px 34px -18px rgba(0,0,0,0.6);
+    z-index: 100;
+    box-sizing: border-box;
+  }
+
+  .bottom-player.aurora::before {
+    content: '';
     position: absolute;
     inset: 0;
-    background: radial-gradient(circle at 20% 50%, rgba(36,134,255,.12), transparent 60%);
+    background: radial-gradient(circle at 10% -20%, rgba(102,126,234,0.22), transparent 55%), radial-gradient(circle at 90% 120%, rgba(118,75,162,0.26), transparent 60%);
+    opacity: 0.7;
     pointer-events: none;
     z-index: 0;
   }
 
-  .bottom-player > * {
+  .player-backdrop {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center;
+    filter: blur(46px) saturate(160%);
+    opacity: 0.14;
+    transform: scale(1.08);
+    transition: opacity 0.4s ease;
+    z-index: 0;
+  }
+
+  .bottom-player.aurora:not(.playing) .player-backdrop {
+    opacity: 0.08;
+  }
+
+  .player-shell {
     position: relative;
     z-index: 1;
-  }
-
-  .bp-left {
     display: flex;
-    align-items: center;
+    flex-direction: column;
     gap: 16px;
-    min-width: 0;
+    width: 100%;
   }
 
-  .art-container {
-    position: relative;
+  .primary-row {
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: space-between;
+    gap: 20px;
+    width: 100%;
+    flex-wrap: wrap;
   }
 
-  .art {
+  .meta-cluster {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 18px;
+    min-width: 0;
+    flex: 1 1 320px;
+  }
+
+  .art-stack {
+    position: relative;
     width: 64px;
     height: 64px;
-    background: rgba(255,255,255,0.05);
-    border-radius: 12px;
+  }
+
+  .art-frame {
+    width: 100%;
+    height: 100%;
+    border-radius: 18px;
     overflow: hidden;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12);
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 1px solid rgba(255,255,255,.08);
     position: relative;
-    z-index: 2;
+    box-shadow: 0 14px 28px -18px rgba(0,0,0,0.65);
   }
 
-  .art img {
+  .art-frame img {
     width: 100%;
     height: 100%;
     object-fit: cover;
   }
 
-  .art-placeholder {
+  .art-frame.placeholder {
+    background: linear-gradient(135deg, rgba(102,126,234,0.25), rgba(118,75,162,0.25));
+    color: rgba(255,255,255,0.82);
     font-size: 24px;
-    color: var(--color-text-dim);
     font-weight: 600;
   }
 
-  .art-glow {
-    position: absolute;
-    inset: -8px;
-    background: var(--gradient-accent);
-    border-radius: 20px;
-    filter: blur(16px);
-    opacity: 0.4;
-    z-index: 1;
-    animation: art-pulse 3s ease-in-out infinite alternate;
-  }
-
-  @keyframes art-pulse {
-    0% { transform: scale(0.95); opacity: 0.3; }
-    100% { transform: scale(1.05); opacity: 0.5; }
-  }
-
-  .meta {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    min-width: 0;
-    flex: 1;
-  }
-
-  .title {
-    font-size: 15px;
+  .art-icon {
+    font-size: 24px;
     font-weight: 600;
-    line-height: 1.3;
   }
 
-  .like-btn {
-    background: none;
-    border: none;
-    color: var(--color-text-dim);
-    cursor: pointer;
-    padding: 8px;
-    border-radius: 50%;
-    transition: all var(--transition-base);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .like-btn:hover {
-    color: var(--color-accent);
-    background: rgba(36,134,255,.1);
-    transform: scale(1.1);
-  }
-
-  .like-btn.liked {
-    color: var(--color-accent);
-  }
-
-  .like-btn.liked svg {
-    fill: currentColor;
-  }
-
-  .transport {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    justify-content: center;
-    margin-bottom: 12px;
-  }
-
-  .t-btn {
-    background: rgba(255,255,255,.08);
-    border: 1px solid rgba(255,255,255,.12);
-    color: var(--color-text);
-    border-radius: 50%;
-    cursor: pointer;
-    transition: all var(--transition-base);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 40px;
-    height: 40px;
-  }
-
-  .t-btn.primary {
-    width: 48px;
-    height: 48px;
-    background: var(--gradient-accent);
-    border: none;
-    color: white;
-    position: relative;
-    overflow: hidden;
-  }
-
-    .t-btn.primary.pulsing {
-    animation: pulse-glow 2s ease-in-out infinite;
-  }
-
-  .t-btn.pulsing:before {
-    content: "";
+  .art-ring {
     position: absolute;
-    inset: -4px;
-    border-radius: inherit;
-    box-shadow: 0 0 0 0 rgba(36,134,255,.6);
-    animation: pulse 2.2s ease-in-out infinite;
-  }
-
-  .t-btn:hover {
-    background: rgba(255,255,255,.15);
-    border-color: rgba(255,255,255,.25);
-    transform: translateY(-1px);
-  }
-
-  .t-btn.primary:hover {
-    filter: brightness(1.1);
-    background: var(--gradient-accent);
-  }
-
-  .progress-stack {
-    flex: 1;
-    display: grid;
-    grid-template-columns: 50px 1fr 50px;
-    align-items: center;
-    gap: 16px;
-  }
-
-  .progress-container {
-    position: relative;
-    cursor: pointer;
-    padding: 8px 0;
-  }
-
-  .progress-line {
-    position: relative;
-    height: 6px;
-    background: rgba(255,255,255,.12);
-    border-radius: 3px;
-    overflow: hidden;
-  }
-
-  .progress-line .fill {
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    background: var(--gradient-accent);
-    border-radius: inherit;
-    box-shadow: 0 0 0 1px rgba(255,255,255,.08), 0 2px 6px -2px rgba(0,0,0,.6);
-    transition: box-shadow var(--transition-base);
-  }
-
-  .progress-container:hover .progress-line .fill {
-    box-shadow: 0 0 0 1px rgba(255,255,255,.12), 0 4px 12px -2px rgba(36,134,255,.4);
-  }
-
-  .progress-thumb {
-    position: absolute;
-    top: 50%;
-    width: 12px;
-    height: 12px;
-    background: white;
-    border-radius: 50%;
-    transform: translate(-50%, -50%);
-    box-shadow: 0 2px 8px -2px rgba(0,0,0,.5);
-    opacity: 0;
-    transition: opacity var(--transition-base);
-  }
-
-  .progress-container:hover .progress-thumb {
-    opacity: 1;
-  }
-
-  .bottom-player.playing .progress-line .fill:after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(120deg, transparent 0%, rgba(255,255,255,.4) 45%, transparent 60%);
-    animation: shimmer 6s linear infinite;
-    mix-blend-mode: overlay;
-  }
-
-  .progress-line .hover {
-    position: absolute;
-    top: -4px;
-    width: 2px;
-    height: 14px;
-    background: var(--color-accent);
-    opacity: .9;
+    inset: -12px;
+    border-radius: 26px;
+    background: conic-gradient(from 120deg, rgba(102,126,234,0.4), rgba(118,75,162,0.05), rgba(102,126,234,0.4));
+    filter: blur(14px);
+    opacity: 0.65;
+    animation: ringPulse 4s ease-in-out infinite;
     pointer-events: none;
-    box-shadow: 0 0 8px 2px rgba(36,134,255,.6);
-    border-radius: 1px;
   }
 
-  .time {
-    font-size: 12px;
-    font-variant-numeric: tabular-nums;
-    color: var(--color-text-dim);
-    text-align: center;
-  }
-
-  .bp-center {
+  .meta-copy {
     display: flex;
     flex-direction: column;
     gap: 8px;
+    min-width: 0;
   }
 
-  .bp-right {
+  .meta-header {
     display: flex;
-    justify-content: flex-end;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--color-text, #fff);
+    flex: 1;
+  }
+
+  .provider-pill {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.18);
+    background: rgba(255,255,255,0.06);
+    color: rgba(255,255,255,0.85);
+  }
+
+  .provider-pill.spotify {
+    border-color: rgba(29,185,84,0.4);
+    background: rgba(29,185,84,0.16);
+    color: #6ce8a0;
+  }
+
+  .provider-pill.youtube {
+    border-color: rgba(255,0,0,0.4);
+    background: rgba(255,0,0,0.16);
+    color: #ff7a7a;
+  }
+
+  .meta-footer {
+    display: flex;
     align-items: center;
     gap: 12px;
+    min-width: 0;
   }
 
-  .volume-container {
+  .meta-cluster .like-chip {
+    justify-self: end;
+  }
+
+  .artists {
+    font-size: 13px;
+    color: var(--color-text-dim, rgba(255,255,255,0.68));
+    flex: 1;
+  }
+
+  .like-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 15px;
+    border: 1px solid rgba(255,255,255,0.14);
+    background: rgba(255,255,255,0.04);
+    color: var(--color-text-dim, rgba(255,255,255,0.6));
+    transition: all 0.2s ease;
+    cursor: pointer;
+  }
+
+  .like-chip:hover {
+    border-color: rgba(255,255,255,0.28);
+    color: var(--color-text, #fff);
+    transform: translateY(-1px);
+  }
+
+  .like-chip svg {
+    width: 24px;
+    height: 24px;
+  }
+
+  .like-chip.liked {
+    border-color: rgba(255,89,142,0.4);
+    background: radial-gradient(circle at 50% 0%, rgba(255,89,142,0.32), rgba(255,89,142,0.08));
+    color: #ff7aa2;
+  }
+
+  .transport-cluster {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    padding: 10px 16px;
+    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.04);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+    flex: 0 0 auto;
+  }
+
+  .t-btn {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.16);
+    background: rgba(255,255,255,0.06);
+    color: var(--color-text, #fff);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
     position: relative;
-    display: flex;
-    align-items: center;
+    overflow: hidden;
   }
 
-  .volume-btn {
-    background: none;
+  .t-btn svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .t-btn:hover {
+    border-color: rgba(255,255,255,0.3);
+    background: rgba(255,255,255,0.12);
+    transform: translateY(-1px);
+  }
+
+  .t-btn:disabled,
+  .t-btn[disabled] {
+    opacity: 0.45;
+    cursor: not-allowed;
+    border-color: rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.04);
+    transform: none;
+  }
+
+  .t-btn:disabled:hover,
+  .t-btn[disabled]:hover {
+    border-color: rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.04);
+  }
+
+  .t-btn.primary {
+    width: 58px;
+    height: 58px;
     border: none;
-    color: var(--color-text-dim);
-    cursor: pointer;
-    padding: 8px;
-    border-radius: 50%;
-    transition: all var(--transition-base);
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    box-shadow: 0 18px 38px -18px rgba(118,75,162,0.75);
   }
 
-  .volume-btn:hover {
-    color: var(--color-text);
-    background: rgba(255,255,255,.08);
+  .t-btn.primary svg {
+    width: 26px;
+    height: 26px;
   }
 
-  .volume-slider {
+  .t-btn.primary .pulse-ring {
     position: absolute;
-    bottom: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(20,26,34,.95);
-    backdrop-filter: blur(20px);
-    border: 1px solid rgba(255,255,255,.12);
-    border-radius: var(--radius-lg);
-    padding: 16px 8px;
-    margin-bottom: 8px;
-    opacity: 0;
+    inset: -8px;
+    border-radius: inherit;
+    border: 2px solid rgba(255,255,255,0.25);
+    opacity: 0.4;
+    animation: breathe 2.6s ease-in-out infinite;
     pointer-events: none;
-    transition: all var(--transition-base);
   }
 
-  .volume-slider.visible {
-    opacity: 1;
-    pointer-events: all;
+  .t-btn.primary.pulsing {
+    animation: popBeat 1.8s ease-in-out infinite;
   }
 
-  .volume-slider input[type=range] {
-    width: 80px;
-    height: 4px;
-    writing-mode: bt-lr;
-    -webkit-appearance: slider-vertical;
-    accent-color: var(--color-accent);
-    cursor: pointer;
-    background: transparent;
-  }
-
-  .queue-btn {
-    background: none;
-    border: none;
-    color: var(--color-text-dim);
-    cursor: pointer;
-    padding: 8px;
-    border-radius: 50%;
-    transition: all var(--transition-base);
-    display: flex;
+  .timeline-shell {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
     align-items: center;
-    justify-content: center;
+    gap: 16px;
+    padding: 12px 18px;
+    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.035);
+    backdrop-filter: blur(12px);
   }
 
-  .queue-btn:hover {
-    color: var(--color-text);
-    background: rgba(255,255,255,.08);
+  .timeline-shell .time {
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    color: var(--color-text-dim, rgba(255,255,255,0.68));
+    text-align: center;
+    min-width: 48px;
   }
 
-  @media (max-width: 980px) {
-    .bottom-player {
-      grid-template-columns: 1fr;
+  .timeline-track {
+    position: relative;
+    height: 8px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.12);
+    overflow: hidden;
+    cursor: pointer;
+    transition: box-shadow 0.2s ease, background 0.2s ease;
+  }
+
+  .timeline-track:hover {
+    background: rgba(255,255,255,0.18);
+    box-shadow: 0 4px 16px -8px rgba(102,126,234,0.55);
+  }
+
+  .track-fill {
+    position: absolute;
+    inset: 0 auto 0 0;
+    background: linear-gradient(135deg, rgba(102,126,234,0.92), rgba(118,75,162,0.92));
+    border-radius: inherit;
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.1), 0 6px 14px -8px rgba(102,126,234,0.65);
+  }
+
+  .track-handle {
+    position: absolute;
+    top: 50%;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #ffffff;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 6px 16px -6px rgba(0,0,0,0.55);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .timeline-shell:hover .track-handle {
+    transform: translate(-50%, -50%) scale(1.1);
+    box-shadow: 0 8px 22px -8px rgba(0,0,0,0.55);
+  }
+
+  .track-preview {
+    position: absolute;
+    top: -5px;
+    width: 2px;
+    height: 18px;
+    background: rgba(255,255,255,0.92);
+    border-radius: 2px;
+    box-shadow: 0 0 10px rgba(255,255,255,0.65);
+    pointer-events: none;
+  }
+
+  .truncate {
+    max-width: 100%;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  @media (max-width: 900px) {
+    .primary-row {
+      flex-direction: column;
+      align-items: stretch;
       gap: 16px;
-      height: auto;
+    }
+
+    .meta-cluster {
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 16px;
+    }
+
+    .meta-cluster .like-chip {
+      justify-self: flex-end;
+    }
+
+    .transport-cluster {
+      width: 100%;
+      justify-content: center;
+    }
+
+    .timeline-shell {
+      padding: 10px 14px;
+      gap: 12px;
+    }
+  }
+
+  @media (max-width: 600px) {
+    .art-stack {
+      width: 56px;
+      height: 56px;
+    }
+
+    .bottom-player.aurora {
+      padding: 16px 16px 14px;
+    }
+
+    .timeline-shell .time {
+      min-width: 44px;
+    }
+  }
+
+  @media (max-width: 720px) {
+    :host {
+      padding: 0 clamp(12px, 4vw, 24px);
+    }
+    .bottom-player.aurora {
+      width: 100%;
       padding: 16px;
     }
-    .bp-center { order: 3; }
-    .bp-right { order: 2; justify-content: center; }
+    .meta-cluster {
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 14px;
+    }
+    .transport-cluster {
+      width: 100%;
+      justify-content: space-between;
+    }
   }
 
-  @keyframes pulse {
-    0% { box-shadow: 0 0 0 0 rgba(36,134,255,.6); }
-    70% { box-shadow: 0 0 0 16px rgba(36,134,255,0); }
-    100% { box-shadow: 0 0 0 0 rgba(36,134,255,0); }
+  @media (max-width: 480px) {
+    :host {
+      padding: 0 clamp(10px, 5vw, 18px);
+    }
+    .bottom-player.aurora {
+      border-radius: 18px;
+      padding: 14px 14px 12px;
+    }
+    .meta-cluster {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: auto auto auto;
+      gap: 12px;
+    }
+    .meta-cluster .like-chip {
+      justify-self: flex-start;
+    }
+    .transport-cluster {
+      gap: 12px;
+      padding: 10px 12px;
+      flex-wrap: wrap;
+    }
+    .t-btn {
+      width: 38px;
+      height: 38px;
+    }
+    .t-btn.primary {
+      width: 52px;
+      height: 52px;
+    }
+    .t-btn.primary svg {
+      width: 22px;
+      height: 22px;
+    }
+    .timeline-shell {
+      grid-template-columns: 1fr;
+      gap: 10px;
+      text-align: left;
+    }
+    .timeline-shell .time {
+      min-width: 0;
+      text-align: left;
+    }
+    .timeline-shell .time:last-child {
+      justify-self: end;
+      text-align: right;
+    }
   }
 
-  @keyframes shimmer {
-    0% { transform: translateX(-60%); }
-    100% { transform: translateX(60%); }
+  @keyframes ringPulse {
+    0% { transform: scale(0.95); opacity: 0.5; }
+    50% { transform: scale(1.05); opacity: 0.75; }
+    100% { transform: scale(0.95); opacity: 0.5; }
+  }
+
+  @keyframes breathe {
+    0%, 100% { transform: scale(0.95); opacity: 0.5; }
+    50% { transform: scale(1.05); opacity: 0.8; }
+  }
+
+  @keyframes popBeat {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
   }
   `]
 })
@@ -495,7 +612,8 @@ export class BottomPlayerComponent {
   positionMs = signal(0);
   durationMs = signal(0);
   volume = signal(80);
-  showVolumeSlider = signal(false);
+  canGoBack = computed(() => this.player.history().length > 0);
+  canGoForward = computed(() => this.player.future().length > 0);
   private volumeDebounce?: any;
   private poll?: any;
   hovering = false;
@@ -528,7 +646,6 @@ export class BottomPlayerComponent {
     }
     this.applyVolume();
   }
-
   private startPolling() {
     this.poll = setInterval(() => this.tick(), 1000);
   }
@@ -552,7 +669,8 @@ export class BottomPlayerComponent {
 
   togglePlay(){ if (this.playing()) { this.player.pause(); } else if (this.current()) { this.player.play(this.current()!, false); } }
   next(){ this.player.next(); }
-  previous(){ /* placeholder for future previous logic */ }
+  async previous(){ await this.player.previous(); }
+  async forward(){ await this.player.forward(); }
   // TODO: implement previous track once playback history is tracked in PlayerService.
 
   scrub(ev:MouseEvent){
