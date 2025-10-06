@@ -9,6 +9,8 @@ import com.audiora.service.JwtService;
 import com.audiora.store.InMemoryTokenStore;
 import com.audiora.model.*;
 import com.audiora.dto.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpHeaders;
@@ -21,6 +23,7 @@ import java.util.Optional;
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
+    private static final Logger log = LoggerFactory.getLogger(AuthController.class);
 
     private final AuthLinkBuilder authLinkBuilder;
     private final SpotifyAuthService spotifyAuthService;
@@ -289,7 +292,7 @@ public class AuthController {
             }
 
             // Generate new verification code and send email
-            String newCode = userService.generateNewVerificationCode(email);
+            userService.generateNewVerificationCode(email);
 
             return ResponseEntity.ok(Map.of("message", "New verification code sent to your email"));
 
@@ -312,8 +315,9 @@ public class AuthController {
             // Generate new verification code (we'll use this as password reset code)
             String resetCode = userService.generateNewVerificationCode(email);
 
-            // TODO: Send reset code via email
-            System.out.println("Password reset code for " + email + ": " + resetCode);
+            // TODO: Implement password reset email (separate from verification email)
+            log.info("Password reset code generated for email: {}", email);
+            log.debug("Password reset code: {}", resetCode); // Only in debug mode
 
             return ResponseEntity.ok(Map.of("message", "Password reset code sent to your email"));
 

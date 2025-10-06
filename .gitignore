@@ -17,10 +17,20 @@ target
 .idea
 .vscode
 
-# Env / secrets
+# Env / secrets - NEVER commit these files
 .env
 *.env
+.env.*
 .env.local
+.env.production
+.env.development
+.env.test
+backend/.env
+backend/*.env
+frontend/.env
+frontend/*.env
+**/application-secrets.yaml
+**/application-secrets.yml
 
 # OS / Misc
 .DS_Store

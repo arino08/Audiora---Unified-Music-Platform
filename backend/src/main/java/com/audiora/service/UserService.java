@@ -1,6 +1,8 @@
 package com.audiora.service;
 
 import com.audiora.model.User;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -13,6 +15,7 @@ import java.util.Optional;
 
 @Service
 public class UserService {
+    private static final Logger log = LoggerFactory.getLogger(UserService.class);
     private final ConcurrentHashMap<String, User> users = new ConcurrentHashMap<>();
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
     private final EmailService emailService;
@@ -53,9 +56,10 @@ public class UserService {
         if (user.getVerificationCode() != null && user.getEmail() != null) {
             try {
                 emailService.sendVerificationEmail(user.getEmail(), user.getVerificationCode());
+                log.info("Verification email sent successfully to {}", user.getEmail());
             } catch (Exception e) {
                 // Log the error but don't fail user creation
-                System.err.println("Warning: Failed to send verification email to " + user.getEmail() + ": " + e.getMessage());
+                log.warn("Failed to send verification email to {}: {}", user.getEmail(), e.getMessage());
                 // Email sending failed, but user creation should continue
             }
         }
