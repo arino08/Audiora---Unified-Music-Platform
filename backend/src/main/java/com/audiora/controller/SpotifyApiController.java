@@ -181,4 +181,83 @@ public class SpotifyApiController {
             return ResponseEntity.internalServerError().body(Map.of("error", "parse_failed", "details", e.getMessage()));
         }
     }
+
+    /**
+     * Get track recommendations based on a seed track
+     * Returns similar tracks that can be auto-queued for continuous playback
+     */
+    @GetMapping("/recommendations")
+    public ResponseEntity<?> recommendations(@RequestHeader(name = "X-Session-Id", required = false) String sessionId,
+                                             @RequestParam(name = "trackId", required = false) String trackId,
+                                             @RequestParam(name = "artistId", required = false) String artistId,
+                                             @RequestParam(name = "limit", required = false, defaultValue = "3") int limit) {
+        if (sessionId == null || sessionId.isBlank()) {
+            return ResponseEntity.status(401).body(Map.of("error", "missing_session", "message", "X-Session-Id header required"));
+        }
+
+        TokenInfo token = tokenStore.get(sessionId, Provider.SPOTIFY);
+        if (token == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "invalid_session"));
+        }
+
+        if (token.getExpiresAt() != null && token.getExpiresAt().isBefore(Instant.now())) {
+            return ResponseEntity.status(401).body(Map.of("error", "token_expired"));
+        }
+
+        // Validate that at least one seed is provided
+        if ((trackId == null || trackId.isBlank()) && (artistId == null || artistId.isBlank())) {
+            return ResponseEntity.badRequest().body(Map.of("error", "missing_seeds",
+                "message", "At least one of trackId or artistId must be provided"));
+        }
+
+        // Limit to max 100 recommendations
+        if (limit > 100) limit = 100;
+        if (limit < 1) limit = 1;
+
+        String raw = spotifyApiService.getRecommendationsRaw(token, sessionId, trackId, artistId, limit).block();
+        if (raw == null) {
+            return ResponseEntity.internalServerError().body(Map.of("error", "spotify_unreachable"));
+        }
+
+        try {
+            JsonNode root = objectMapper.readTree(raw);
+            JsonNode tracks = root.path("tracks");
+            List<Map<String, Object>> items = new ArrayList<>();
+
+            if (tracks.isArray()) {
+                for (JsonNode t : tracks) {
+                    String id = t.path("id").asText();
+                    String name = t.path("name").asText();
+                    List<String> artists = new ArrayList<>();
+                    List<String> artistIds = new ArrayList<>();
+                    for (JsonNode a : t.path("artists")) {
+                        artists.add(a.path("name").asText());
+                        artistIds.add(a.path("id").asText());
+                    }
+                    String album = t.path("album").path("name").asText();
+                    long durationMs = t.path("duration_ms").asLong();
+                    String uri = t.path("uri").asText();
+                    String image = null;
+                    JsonNode images = t.path("album").path("images");
+                    if (images.isArray() && images.size() > 0) {
+                        image = images.get(images.size()-1).path("url").asText();
+                    }
+                    items.add(Map.of(
+                            "id", id,
+                            "name", name,
+                            "artists", artists,
+                            "artistIds", artistIds,
+                            "album", album,
+                            "durationMs", durationMs,
+                            "uri", uri,
+                            "image", image,
+                            "provider", "spotify"
+                    ));
+                }
+            }
+            return ResponseEntity.ok(Map.of("items", items, "count", items.size()));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(Map.of("error", "parse_failed", "details", e.getMessage()));
+        }
+    }
 }

@@ -1,7 +1,7 @@
 # 🚨 SECURITY INCIDENT RESPONSE - EXPOSED CREDENTIALS
 
-**Date:** October 6, 2025  
-**Severity:** CRITICAL  
+**Date:** October 6, 2025
+**Severity:** CRITICAL
 **Status:** ACTION REQUIRED
 
 ---

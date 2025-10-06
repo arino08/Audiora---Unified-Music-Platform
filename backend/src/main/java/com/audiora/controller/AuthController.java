@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -246,11 +247,11 @@ public class AuthController {
             User user = userOpt.get();
 
             // Generate JWT token
-            String token = jwtService.generateToken(user.getId(), user.getEmail());
+            String token = jwtService.generateToken(user.getId().toString(), user.getEmail());
 
             // Create user profile response
             AuthResponse.UserProfile userProfile = new AuthResponse.UserProfile(
-                    user.getId(), user.getEmail(), user.getName(), user.isEmailVerified());
+                    user.getId().toString(), user.getEmail(), user.getName(), user.isEmailVerified());
 
             return ResponseEntity.ok(new AuthResponse(token, userProfile));
 
@@ -375,7 +376,8 @@ public class AuthController {
             }
 
             String token = authHeader.substring(7);
-            String userId = jwtService.getUserIdFromToken(token);
+            String userIdString = jwtService.getUserIdFromToken(token);
+            UUID userId = UUID.fromString(userIdString);
 
             Optional<User> userOpt = userService.getUserById(userId);
             if (userOpt.isEmpty()) {
@@ -385,7 +387,7 @@ public class AuthController {
 
             User user = userOpt.get();
             AuthResponse.UserProfile userProfile = new AuthResponse.UserProfile(
-                    user.getId(), user.getEmail(), user.getName(), user.isEmailVerified());
+                    user.getId().toString(), user.getEmail(), user.getName(), user.isEmailVerified());
 
             return ResponseEntity.ok(userProfile);
 
@@ -403,14 +405,15 @@ public class AuthController {
     public ResponseEntity<?> exchangeOAuthSession(@RequestBody Map<String, String> request) {
         try {
             String sessionId = request.get("sessionId");
-            String userId = request.get("userId");
+            String userIdString = request.get("userId");
 
-            if (sessionId == null || userId == null) {
+            if (sessionId == null || userIdString == null) {
                 return ResponseEntity.badRequest()
                         .body(Map.of("error", "SessionId and userId are required"));
             }
 
             // Verify the user exists
+            UUID userId = UUID.fromString(userIdString);
             Optional<User> userOpt = userService.getUserById(userId);
             if (userOpt.isEmpty()) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -430,11 +433,11 @@ public class AuthController {
             }
 
             // Generate JWT token for the user
-            String jwtToken = jwtService.generateToken(user.getId(), user.getEmail());
+            String jwtToken = jwtService.generateToken(user.getId().toString(), user.getEmail());
 
             // Create user profile response
             AuthResponse.UserProfile userProfile = new AuthResponse.UserProfile(
-                    user.getId(), user.getEmail(), user.getName(), user.isEmailVerified());
+                    user.getId().toString(), user.getEmail(), user.getName(), user.isEmailVerified());
 
             return ResponseEntity.ok(new AuthResponse(jwtToken, userProfile));
 

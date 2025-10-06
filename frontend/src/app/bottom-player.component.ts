@@ -114,27 +114,29 @@ import { LikedSongsService } from './liked-songs.service';
 
   .bottom-player.aurora {
     position: relative;
-    padding: 18px 22px 16px;
-    width: min(720px, calc(100% - 32px));
+    padding: 24px 32px 22px;
+    width: min(820px, calc(100% - 48px));
     pointer-events: auto;
     border-top: 1px solid rgba(255,255,255,0.08);
-    background: linear-gradient(135deg, rgba(18,24,37,0.94), rgba(8,12,22,0.96));
+    background: var(--color-surface, rgba(18,24,37,0.94));
     backdrop-filter: blur(26px) saturate(185%);
     overflow: hidden;
     border-radius: 20px 20px 16px 16px;
     box-shadow: 0 -14px 34px -18px rgba(0,0,0,0.6);
     z-index: 100;
     box-sizing: border-box;
+    transition: background-color 0.3s ease;
   }
 
   .bottom-player.aurora::before {
     content: '';
     position: absolute;
     inset: 0;
-    background: radial-gradient(circle at 10% -20%, rgba(102,126,234,0.22), transparent 55%), radial-gradient(circle at 90% 120%, rgba(118,75,162,0.26), transparent 60%);
+    background: radial-gradient(circle at 10% -20%, var(--color-accent-fade, rgba(102,126,234,0.22)), transparent 55%), radial-gradient(circle at 90% 120%, var(--color-accent-soft, rgba(118,75,162,0.26)), transparent 60%);
     opacity: 0.7;
     pointer-events: none;
     z-index: 0;
+    transition: opacity 0.5s ease;
   }
 
   .player-backdrop {
@@ -158,7 +160,7 @@ import { LikedSongsService } from './liked-songs.service';
     z-index: 1;
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 20px;
     width: 100%;
   }
 
@@ -166,7 +168,7 @@ import { LikedSongsService } from './liked-songs.service';
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 20px;
+    gap: 28px;
     width: 100%;
     flex-wrap: wrap;
   }
@@ -175,15 +177,15 @@ import { LikedSongsService } from './liked-songs.service';
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
-    gap: 18px;
+    gap: 20px;
     min-width: 0;
-    flex: 1 1 320px;
+    flex: 1 1 340px;
   }
 
   .art-stack {
     position: relative;
-    width: 64px;
-    height: 64px;
+    width: 68px;
+    height: 68px;
   }
 
   .art-frame {

@@ -120,17 +120,19 @@ import { AuthService } from '../auth.service';
       height: 100%;
       padding: var(--space-6) var(--space-4);
       gap: var(--space-6);
-      background: linear-gradient(180deg, #0f161e 0%, #0c1218 60%, #09101a 100%);
-      border-right: 1px solid rgba(255,255,255,.08);
+      background: var(--color-background, #0c1218);
+      border-right: 1px solid var(--color-border, rgba(255,255,255,.08));
       position: relative;
+      transition: background-color 0.3s ease, border-color 0.3s ease;
     }
 
     nav.sidebar-inner:before {
       content: "";
       position: absolute;
       inset: 0;
-      background: radial-gradient(circle at 50% 20%, rgba(36,134,255,.15), transparent 70%);
+      background: radial-gradient(circle at 50% 20%, var(--color-accent-fade, rgba(36,134,255,.15)), transparent 70%);
       pointer-events: none;
+      transition: opacity 0.5s ease;
     }
 
     .brand-section {
@@ -192,7 +194,7 @@ import { AuthService } from '../auth.service';
     }
 
     .sync-btn:hover {
-      background: rgba(255,255,255,0.05);
+      background: var(--color-surface-2, rgba(255,255,255,0.05));
       color: var(--color-accent);
       border-color: var(--color-accent);
       transform: rotate(180deg);
@@ -219,9 +221,9 @@ import { AuthService } from '../auth.service';
       align-items: center;
       gap: var(--space-3);
       padding: var(--space-3) var(--space-4);
-      border: 1px solid rgba(255,255,255,.12);
+      border: 1px solid var(--color-border, rgba(255,255,255,.12));
       border-radius: var(--radius-lg);
-      background: rgba(255,255,255,.04);
+      background: var(--color-surface-2, rgba(255,255,255,.04));
       color: var(--color-text);
       font: inherit;
       cursor: pointer;
@@ -230,8 +232,8 @@ import { AuthService } from '../auth.service';
     }
 
     .connect-btn:hover {
-      background: rgba(255,255,255,.08);
-      border-color: rgba(255,255,255,.2);
+      background: var(--color-surface-3, rgba(255,255,255,.08));
+      border-color: var(--color-border-hover, rgba(255,255,255,.2));
       transform: translateY(-1px);
     }
 

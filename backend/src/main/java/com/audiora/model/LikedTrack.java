@@ -1,41 +1,69 @@
 package com.audiora.model;
 
-import java.time.Instant;
+import jakarta.persistence.*;
+import org.hibernate.annotations.CreationTimestamp;
 
+import java.time.Instant;
+import java.util.UUID;
+
+@Entity
+@Table(name = "liked_tracks", indexes = {
+    @Index(name = "idx_user_id", columnList = "userId"),
+    @Index(name = "idx_provider_track", columnList = "provider,trackId"),
+    @Index(name = "idx_liked_at", columnList = "likedAt")
+}, uniqueConstraints = {
+    @UniqueConstraint(columnNames = {"userId", "provider", "trackId"})
+})
 public class LikedTrack {
-    private String id; // Unique ID for this liked track entry
-    private String userId; // The user who liked the track
-    private Provider provider; // SPOTIFY or YOUTUBE
-    private String trackId; // Track ID from the provider
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
+
+    @Column(nullable = false)
+    private UUID userId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private Provider provider;
+
+    @Column(nullable = false, length = 100)
+    private String trackId;
+
+    @Column(length = 255)
     private String title;
+
+    @Column(length = 255)
     private String artist;
+
+    @Column(length = 255)
     private String album;
+
+    @Column(length = 500)
     private String imageUrl;
-    private String externalUrl; // Link to the track on the provider
+
+    @Column(length = 500)
+    private String externalUrl;
+
+    @CreationTimestamp
+    @Column(nullable = false, updatable = false)
     private Instant likedAt;
 
     public LikedTrack() {}
 
-    public LikedTrack(String userId, Provider provider, String trackId, String title, String artist) {
+    public LikedTrack(UUID userId, Provider provider, String trackId, String title, String artist) {
         this.userId = userId;
         this.provider = provider;
         this.trackId = trackId;
         this.title = title;
         this.artist = artist;
-        this.likedAt = Instant.now();
-        this.id = generateId();
-    }
-
-    private String generateId() {
-        return userId + "_" + provider + "_" + trackId;
     }
 
     // Getters and setters
-    public String getId() { return id; }
-    public void setId(String id) { this.id = id; }
+    public UUID getId() { return id; }
+    public void setId(UUID id) { this.id = id; }
 
-    public String getUserId() { return userId; }
-    public void setUserId(String userId) { this.userId = userId; }
+    public UUID getUserId() { return userId; }
+    public void setUserId(UUID userId) { this.userId = userId; }
 
     public Provider getProvider() { return provider; }
     public void setProvider(Provider provider) { this.provider = provider; }

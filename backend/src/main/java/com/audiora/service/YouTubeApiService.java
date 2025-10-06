@@ -63,4 +63,25 @@ public class YouTubeApiService {
         .retrieve()
         .bodyToMono(String.class));
     }
+
+    /**
+     * Get related videos for a given video ID
+     * @param token YouTube access token
+     * @param videoId The video ID to find related content for
+     * @param limit Maximum number of related videos to return (default 3, max 50)
+     * @return Raw JSON response from YouTube search API with related videos
+     */
+    public Mono<String> getRelatedVideosRaw(TokenInfo token, String videoId, int limit) {
+        int effectiveLimit = Math.min(limit, 50);
+        return ensureValid(token, null).defaultIfEmpty(token).flatMap(t -> api.get()
+            .uri(uriBuilder -> uriBuilder.path("/search")
+                .queryParam("part", "snippet")
+                .queryParam("type", "video")
+                .queryParam("relatedToVideoId", videoId)
+                .queryParam("maxResults", effectiveLimit)
+                .build())
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + t.getAccessToken())
+            .retrieve()
+            .bodyToMono(String.class));
+    }
 }

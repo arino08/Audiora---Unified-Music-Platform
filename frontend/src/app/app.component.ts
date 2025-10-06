@@ -1,4 +1,4 @@
-import { Component, signal, OnInit, NgZone, effect } from '@angular/core';
+import { Component, signal, OnInit, NgZone, effect, ViewChild } from '@angular/core';
 import { HttpClient, HttpClientModule } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
@@ -12,11 +12,14 @@ import { SidebarComponent } from './layout/sidebar.component';
 import { NowPlayingPanelComponent } from './now-playing-panel.component';
 import { AlbumCarouselComponent } from './album-carousel.component';
 import { BottomPlayerComponent } from './bottom-player.component';
+import { SettingsPanelComponent } from './settings-panel.component';
+import { ProfilePanelComponent } from './profile-panel.component';
+import { AutoQueueService } from './auto-queue.service';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, HttpClientModule, FormsModule, SidebarComponent, NowPlayingPanelComponent, BottomPlayerComponent, AlbumCarouselComponent],
+  imports: [CommonModule, HttpClientModule, FormsModule, SidebarComponent, NowPlayingPanelComponent, BottomPlayerComponent, AlbumCarouselComponent, SettingsPanelComponent, ProfilePanelComponent],
   styles: [`
     .inline-instructions-section { margin: var(--space-8) 0; }
     .inline-instructions { position: relative; padding: var(--space-6); border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; background: linear-gradient(145deg, rgba(20,28,38,0.85), rgba(12,18,25,0.85)); backdrop-filter: blur(14px) saturate(140%); box-shadow: 0 8px 32px -8px rgba(0,0,0,0.6); animation: fadeIn .4s ease; }
@@ -878,6 +881,13 @@ import { BottomPlayerComponent } from './bottom-player.component';
                           <div class="button-desc">Grab your latest favorites</div>
                         </div>
                       </button>
+                      <button type="button" class="dropdown-button profile" (click)="openProfile()">
+                        <span class="button-icon">👤</span>
+                        <div>
+                          <div class="button-label">Edit Profile</div>
+                          <div class="button-desc">Manage your account</div>
+                        </div>
+                      </button>
                       <button type="button" class="dropdown-button settings" (click)="openSettings()">
                         <span class="button-icon">⚙️</span>
                         <div>
@@ -1171,6 +1181,12 @@ import { BottomPlayerComponent } from './bottom-player.component';
         <audiora-now-playing-panel />
       </main>
       <audiora-bottom-player *ngIf="nowPlaying()" />
+
+      <!-- Settings Panel -->
+      <app-settings-panel />
+
+      <!-- Profile Panel -->
+      <app-profile-panel />
     </div>
   `
 })
@@ -1222,14 +1238,25 @@ export class AppComponent implements OnInit {
     return letter ? letter.toUpperCase() : '?';
   }
 
+  @ViewChild(SettingsPanelComponent) settingsPanel!: SettingsPanelComponent;
+  @ViewChild(ProfilePanelComponent) profilePanel!: ProfilePanelComponent;
+
   toggleUserMenu() {
     this.showUserMenu = !this.showUserMenu;
   }
 
   openSettings() {
-    // TODO: Implement settings modal
-    console.log('Settings clicked');
     this.showUserMenu = false;
+    if (this.settingsPanel) {
+      this.settingsPanel.open();
+    }
+  }
+
+  openProfile() {
+    this.showUserMenu = false;
+    if (this.profilePanel) {
+      this.profilePanel.open();
+    }
   }
 
   // nowPlaying & barPlaying provided via getters instead of stored fields to avoid init order issues
@@ -1250,7 +1277,8 @@ export class AppComponent implements OnInit {
     public likedSongs: LikedSongsService,
     public auth: AuthService,
     private ngZone: NgZone,
-    private router: Router
+    private router: Router,
+    private autoQueue: AutoQueueService
   ) {
     this.initialSessionCapture();
     // Provide callbacks to player service
@@ -1389,6 +1417,7 @@ export class AppComponent implements OnInit {
   private setSession(id: string) {
     this.sessionId.set(id);
     localStorage.setItem('audiora_session', id);
+    this.autoQueue.setSessionId(id);
     // Auto-load playlists for both providers
     this.fetchSpotifyPlaylists();
     this.fetchYouTubePlaylists();
@@ -1397,6 +1426,8 @@ export class AppComponent implements OnInit {
   clearSession() {
     this.sessionId.set(null);
     localStorage.removeItem('audiora_session');
+    this.autoQueue.setSessionId(null);
+    this.autoQueue.clearHistory();
     this.spotifyPlaylists.set([]);
     this.youtubePlaylists.set([]);
     this.youtubeItems.set([]);

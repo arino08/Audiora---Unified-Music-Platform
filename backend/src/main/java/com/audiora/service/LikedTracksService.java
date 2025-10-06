@@ -2,112 +2,109 @@ package com.audiora.service;
 
 import com.audiora.model.LikedTrack;
 import com.audiora.model.Provider;
+import com.audiora.repository.LikedTrackRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
+import java.util.UUID;
 
 @Service
 public class LikedTracksService {
-    private final ConcurrentHashMap<String, LikedTrack> likedTracks = new ConcurrentHashMap<>();
+    private final LikedTrackRepository likedTrackRepository;
+
+    public LikedTracksService(LikedTrackRepository likedTrackRepository) {
+        this.likedTrackRepository = likedTrackRepository;
+    }
 
     /**
      * Like a track for a user
      */
-    public LikedTrack likeTrack(String userId, Provider provider, String trackId, String title, String artist, String album, String imageUrl, String externalUrl) {
-        String id = generateId(userId, provider, trackId);
+    @Transactional
+    public LikedTrack likeTrack(UUID userId, Provider provider, String trackId, String title, String artist, String album, String imageUrl, String externalUrl) {
+        // Check if already liked
+        if (likedTrackRepository.existsByUserIdAndProviderAndTrackId(userId, provider, trackId)) {
+            return likedTrackRepository.findByUserIdAndProviderAndTrackId(userId, provider, trackId).orElse(null);
+        }
 
         LikedTrack likedTrack = new LikedTrack(userId, provider, trackId, title, artist);
-        likedTrack.setId(id);
         likedTrack.setAlbum(album);
         likedTrack.setImageUrl(imageUrl);
         likedTrack.setExternalUrl(externalUrl);
 
-        likedTracks.put(id, likedTrack);
-        return likedTrack;
+        return likedTrackRepository.save(likedTrack);
     }
 
     /**
      * Unlike a track for a user
      */
-    public boolean unlikeTrack(String userId, Provider provider, String trackId) {
-        String id = generateId(userId, provider, trackId);
-        return likedTracks.remove(id) != null;
+    @Transactional
+    public boolean unlikeTrack(UUID userId, Provider provider, String trackId) {
+        likedTrackRepository.deleteByUserIdAndProviderAndTrackId(userId, provider, trackId);
+        return true;
     }
 
     /**
      * Check if a track is liked by a user
      */
-    public boolean isTrackLiked(String userId, Provider provider, String trackId) {
-        String id = generateId(userId, provider, trackId);
-        return likedTracks.containsKey(id);
+    public boolean isTrackLiked(UUID userId, Provider provider, String trackId) {
+        return likedTrackRepository.existsByUserIdAndProviderAndTrackId(userId, provider, trackId);
     }
 
     /**
      * Get all liked tracks for a user
      */
-    public List<LikedTrack> getUserLikedTracks(String userId) {
-        return likedTracks.values().stream()
-                .filter(track -> userId.equals(track.getUserId()))
-                .sorted((a, b) -> b.getLikedAt().compareTo(a.getLikedAt())) // Most recent first
-                .collect(Collectors.toList());
+    public List<LikedTrack> getUserLikedTracks(UUID userId) {
+        return likedTrackRepository.findByUserIdOrderByLikedAtDesc(userId);
     }
 
     /**
      * Get liked tracks for a user from a specific provider
      */
-    public List<LikedTrack> getUserLikedTracksByProvider(String userId, Provider provider) {
-        return likedTracks.values().stream()
-                .filter(track -> userId.equals(track.getUserId()) && provider.equals(track.getProvider()))
-                .sorted((a, b) -> b.getLikedAt().compareTo(a.getLikedAt()))
-                .collect(Collectors.toList());
+    public List<LikedTrack> getUserLikedTracksByProvider(UUID userId, Provider provider) {
+        return likedTrackRepository.findByUserIdAndProviderOrderByLikedAtDesc(userId, provider);
     }
 
     /**
      * Get a specific liked track
      */
-    public Optional<LikedTrack> getLikedTrack(String userId, Provider provider, String trackId) {
-        String id = generateId(userId, provider, trackId);
-        return Optional.ofNullable(likedTracks.get(id));
+    public Optional<LikedTrack> getLikedTrack(UUID userId, Provider provider, String trackId) {
+        return likedTrackRepository.findByUserIdAndProviderAndTrackId(userId, provider, trackId);
     }
 
     /**
      * Import liked tracks for a user (for syncing from client-side storage)
      */
-    public void importLikedTracks(String userId, List<LikedTrack> tracks) {
+    @Transactional
+    public void importLikedTracks(UUID userId, List<LikedTrack> tracks) {
         for (LikedTrack track : tracks) {
             track.setUserId(userId);
-            track.setId(generateId(userId, track.getProvider(), track.getTrackId()));
-            likedTracks.put(track.getId(), track);
+            if (!likedTrackRepository.existsByUserIdAndProviderAndTrackId(userId, track.getProvider(), track.getTrackId())) {
+                likedTrackRepository.save(track);
+            }
         }
     }
 
     /**
      * Export liked tracks for a user (for backup or migration)
      */
-    public List<LikedTrack> exportUserLikedTracks(String userId) {
+    public List<LikedTrack> exportUserLikedTracks(UUID userId) {
         return getUserLikedTracks(userId);
     }
 
     /**
      * Get count of liked tracks for a user
      */
-    public long getUserLikedTracksCount(String userId) {
-        return likedTracks.values().stream()
-                .filter(track -> userId.equals(track.getUserId()))
-                .count();
+    public long getUserLikedTracksCount(UUID userId) {
+        return likedTrackRepository.countByUserId(userId);
     }
 
     /**
      * Clear all liked tracks for a user
      */
-    public void clearUserLikedTracks(String userId) {
-        likedTracks.entrySet().removeIf(entry -> userId.equals(entry.getValue().getUserId()));
-    }
-
-    private String generateId(String userId, Provider provider, String trackId) {
-        return userId + "_" + provider + "_" + trackId;
+    @Transactional
+    public void clearUserLikedTracks(UUID userId) {
+        likedTrackRepository.deleteByUserId(userId);
     }
 }

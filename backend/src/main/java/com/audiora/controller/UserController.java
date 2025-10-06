@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/users")
@@ -33,7 +34,8 @@ public class UserController {
      */
     @GetMapping("/{userId}")
     public ResponseEntity<User> getUserProfile(@PathVariable String userId) {
-        Optional<User> user = userService.getUserById(userId);
+        UUID userUUID = UUID.fromString(userId);
+        Optional<User> user = userService.getUserById(userUUID);
         return user.map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
     }
 
@@ -72,10 +74,11 @@ public class UserController {
      */
     @GetMapping("/{userId}/liked-tracks")
     public ResponseEntity<List<LikedTrack>> getUserLikedTracks(@PathVariable String userId) {
-        if (!userService.userExists(userId)) {
+        UUID userUUID = UUID.fromString(userId);
+        if (!userService.userExists(userUUID)) {
             return ResponseEntity.notFound().build();
         }
-        List<LikedTrack> likedTracks = likedTracksService.getUserLikedTracks(userId);
+        List<LikedTrack> likedTracks = likedTracksService.getUserLikedTracks(userUUID);
         return ResponseEntity.ok(likedTracks);
     }
 
@@ -86,10 +89,11 @@ public class UserController {
     public ResponseEntity<List<LikedTrack>> getUserLikedTracksByProvider(
             @PathVariable String userId,
             @PathVariable Provider provider) {
-        if (!userService.userExists(userId)) {
+        UUID userUUID = UUID.fromString(userId);
+        if (!userService.userExists(userUUID)) {
             return ResponseEntity.notFound().build();
         }
-        List<LikedTrack> likedTracks = likedTracksService.getUserLikedTracksByProvider(userId, provider);
+        List<LikedTrack> likedTracks = likedTracksService.getUserLikedTracksByProvider(userUUID, provider);
         return ResponseEntity.ok(likedTracks);
     }
 
@@ -98,12 +102,13 @@ public class UserController {
      */
     @PostMapping("/{userId}/liked-tracks")
     public ResponseEntity<LikedTrack> likeTrack(@PathVariable String userId, @RequestBody LikeTrackRequest request) {
-        if (!userService.userExists(userId)) {
+        UUID userUUID = UUID.fromString(userId);
+        if (!userService.userExists(userUUID)) {
             return ResponseEntity.notFound().build();
         }
 
         LikedTrack likedTrack = likedTracksService.likeTrack(
-            userId,
+            userUUID,
             request.getProvider(),
             request.getTrackId(),
             request.getTitle(),
@@ -123,11 +128,12 @@ public class UserController {
             @PathVariable String userId,
             @PathVariable Provider provider,
             @PathVariable String trackId) {
-        if (!userService.userExists(userId)) {
+        UUID userUUID = UUID.fromString(userId);
+        if (!userService.userExists(userUUID)) {
             return ResponseEntity.notFound().build();
         }
 
-        boolean removed = likedTracksService.unlikeTrack(userId, provider, trackId);
+        boolean removed = likedTracksService.unlikeTrack(userUUID, provider, trackId);
         return removed ? ResponseEntity.ok().build() : ResponseEntity.notFound().build();
     }
 
@@ -139,11 +145,12 @@ public class UserController {
             @PathVariable String userId,
             @PathVariable Provider provider,
             @PathVariable String trackId) {
-        if (!userService.userExists(userId)) {
+        UUID userUUID = UUID.fromString(userId);
+        if (!userService.userExists(userUUID)) {
             return ResponseEntity.notFound().build();
         }
 
-        boolean isLiked = likedTracksService.isTrackLiked(userId, provider, trackId);
+        boolean isLiked = likedTracksService.isTrackLiked(userUUID, provider, trackId);
         return ResponseEntity.ok(Map.of("isLiked", isLiked));
     }
 
@@ -154,11 +161,12 @@ public class UserController {
     public ResponseEntity<Map<String, String>> importLikedTracks(
             @PathVariable String userId,
             @RequestBody List<LikedTrack> tracks) {
-        if (!userService.userExists(userId)) {
+        UUID userUUID = UUID.fromString(userId);
+        if (!userService.userExists(userUUID)) {
             return ResponseEntity.notFound().build();
         }
 
-        likedTracksService.importLikedTracks(userId, tracks);
+        likedTracksService.importLikedTracks(userUUID, tracks);
         return ResponseEntity.ok(Map.of("message", "Liked tracks imported successfully"));
     }
 
@@ -167,11 +175,12 @@ public class UserController {
      */
     @GetMapping("/{userId}/liked-tracks/export")
     public ResponseEntity<List<LikedTrack>> exportLikedTracks(@PathVariable String userId) {
-        if (!userService.userExists(userId)) {
+        UUID userUUID = UUID.fromString(userId);
+        if (!userService.userExists(userUUID)) {
             return ResponseEntity.notFound().build();
         }
 
-        List<LikedTrack> tracks = likedTracksService.exportUserLikedTracks(userId);
+        List<LikedTrack> tracks = likedTracksService.exportUserLikedTracks(userUUID);
         return ResponseEntity.ok(tracks);
     }
 
@@ -180,11 +189,12 @@ public class UserController {
      */
     @GetMapping("/{userId}/liked-tracks/count")
     public ResponseEntity<Map<String, Long>> getLikedTracksCount(@PathVariable String userId) {
-        if (!userService.userExists(userId)) {
+        UUID userUUID = UUID.fromString(userId);
+        if (!userService.userExists(userUUID)) {
             return ResponseEntity.notFound().build();
         }
 
-        long count = likedTracksService.getUserLikedTracksCount(userId);
+        long count = likedTracksService.getUserLikedTracksCount(userUUID);
         return ResponseEntity.ok(Map.of("count", count));
     }
 

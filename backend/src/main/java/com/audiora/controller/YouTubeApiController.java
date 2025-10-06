@@ -166,4 +166,75 @@ public class YouTubeApiController {
             return ResponseEntity.internalServerError().body(Map.of("error", "parse_failed", "details", e.getMessage()));
         }
     }
+
+    /**
+     * Get related/recommended videos based on a given video
+     * Returns similar videos that can be auto-queued for continuous playback
+     */
+    @GetMapping("/related")
+    public ResponseEntity<?> related(@RequestHeader(name = "X-Session-Id", required = false) String sessionId,
+                                     @RequestParam(name = "videoId") String videoId,
+                                     @RequestParam(name = "limit", required = false, defaultValue = "3") int limit) {
+        if (sessionId == null || sessionId.isBlank()) {
+            return ResponseEntity.status(401).body(Map.of("error", "missing_session", "message", "X-Session-Id header required"));
+        }
+
+        TokenInfo token = tokenStore.get(sessionId, Provider.YOUTUBE);
+        if (token == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "invalid_session"));
+        }
+
+        if (token.getExpiresAt() != null && token.getExpiresAt().isBefore(Instant.now())) {
+            return ResponseEntity.status(401).body(Map.of("error", "token_expired"));
+        }
+
+        if (videoId == null || videoId.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "missing_video_id",
+                "message", "videoId parameter is required"));
+        }
+
+        // Limit to max 50 recommendations
+        if (limit > 50) limit = 50;
+        if (limit < 1) limit = 1;
+
+        String raw = youTubeApiService.getRelatedVideosRaw(token, videoId, limit).block();
+        if (raw == null) {
+            return ResponseEntity.internalServerError().body(Map.of("error", "youtube_unreachable"));
+        }
+
+        try {
+            JsonNode root = objectMapper.readTree(raw);
+            List<Map<String,Object>> items = new ArrayList<>();
+
+            if (root.has("items")) {
+                for (JsonNode n : root.get("items")) {
+                    JsonNode snippet = n.path("snippet");
+                    String relatedVideoId = n.path("id").path("videoId").asText();
+                    String title = snippet.path("title").asText();
+                    String channel = snippet.path("channelTitle").asText();
+                    String channelId = snippet.path("channelId").asText();
+                    String publishedAt = snippet.path("publishedAt").asText();
+                    String thumb = null;
+                    JsonNode thumbs = snippet.path("thumbnails");
+                    if (thumbs.has("default")) {
+                        thumb = thumbs.path("default").path("url").asText(null);
+                    } else if (thumbs.has("medium")) {
+                        thumb = thumbs.path("medium").path("url").asText(null);
+                    }
+                    items.add(Map.of(
+                        "videoId", relatedVideoId,
+                        "title", title,
+                        "channel", channel,
+                        "channelId", channelId,
+                        "thumbnail", thumb,
+                        "publishedAt", publishedAt,
+                        "provider", "youtube"
+                    ));
+                }
+            }
+            return ResponseEntity.ok(Map.of("items", items, "count", items.size()));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(Map.of("error", "parse_failed", "details", e.getMessage()));
+        }
+    }
 }

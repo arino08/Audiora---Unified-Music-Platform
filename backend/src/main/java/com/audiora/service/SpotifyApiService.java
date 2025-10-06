@@ -107,4 +107,32 @@ public class SpotifyApiService {
             .exchangeToMono(resp -> resp.toBodilessEntity().map(e -> resp.statusCode().value()))
             .onErrorResume(ex -> Mono.just(-1)));
     }
+
+    /**
+     * Get track recommendations based on seed tracks, artists, or genres
+     * @param token Spotify access token
+     * @param sessionId Session ID
+     * @param seedTracks Comma-separated track IDs (max 5 seeds total)
+     * @param seedArtists Comma-separated artist IDs (max 5 seeds total)
+     * @param limit Number of recommendations to return (default 3, max 100)
+     * @return Raw JSON response from Spotify recommendations API
+     */
+    public Mono<String> getRecommendationsRaw(TokenInfo token, String sessionId, String seedTracks,
+                                               String seedArtists, int limit) {
+        return ensureValid(token, sessionId).switchIfEmpty(Mono.just(token)).flatMap(t -> api.get()
+            .uri(uriBuilder -> {
+                var builder = uriBuilder.path("/recommendations")
+                    .queryParam("limit", limit);
+                if (seedTracks != null && !seedTracks.isBlank()) {
+                    builder = builder.queryParam("seed_tracks", seedTracks);
+                }
+                if (seedArtists != null && !seedArtists.isBlank()) {
+                    builder = builder.queryParam("seed_artists", seedArtists);
+                }
+                return builder.build();
+            })
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + t.getAccessToken())
+            .retrieve()
+            .bodyToMono(String.class));
+    }
 }

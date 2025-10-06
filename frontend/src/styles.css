@@ -124,33 +124,35 @@ html, body { height:100%; }
 body {
 	margin:0;
 	font-family: var(--font-base);
-	background: linear-gradient(140deg,#060a10,#07111b 55%,#081320) fixed, var(--gradient-glow-blue);
+	background: var(--color-background, #060a10);
 	color: var(--color-text);
 	-webkit-font-smoothing: antialiased;
+	transition: background-color 0.3s ease;
 }
 
-/* Abstract animated background (subtle, non-artwork) */
+/* Abstract animated background (subtle, non-artwork) - respects theme */
 body:before, body:after {
 	content:""; position:fixed; inset:0; pointer-events:none; z-index:0;
 	background:
-		radial-gradient(circle at 15% 25%, rgba(50,120,255,0.15), transparent 50%),
-		radial-gradient(circle at 85% 75%, rgba(90,180,255,0.10), transparent 55%),
-		radial-gradient(circle at 70% 10%, rgba(120,140,255,0.08), transparent 60%),
-		radial-gradient(circle at 30% 90%, rgba(160,200,255,0.06), transparent 65%),
-		linear-gradient(140deg,#060a10,#07111b 55%,#081320);
+		radial-gradient(circle at 15% 25%, var(--color-accent-fade, rgba(50,120,255,0.15)), transparent 50%),
+		radial-gradient(circle at 85% 75%, var(--color-accent-soft, rgba(90,180,255,0.10)), transparent 55%),
+		radial-gradient(circle at 70% 10%, var(--color-accent-fade, rgba(120,140,255,0.08)), transparent 60%),
+		radial-gradient(circle at 30% 90%, var(--color-accent-soft, rgba(160,200,255,0.06)), transparent 65%);
 	mix-blend-mode: screen;
-	opacity: .75;
+	opacity: .5;
 	animation: enhanced-bg-shift 35s ease-in-out infinite alternate;
+	transition: opacity 0.5s ease;
 }
 body:after {
 	background:
-		radial-gradient(circle at 25% 60%, rgba(36,134,255,0.12), transparent 45%),
-		radial-gradient(circle at 75% 30%, rgba(72,149,255,0.08), transparent 50%),
-		linear-gradient(160deg, rgba(36,134,255,0.04), transparent 70%);
+		radial-gradient(circle at 25% 60%, var(--color-accent-fade, rgba(36,134,255,0.12)), transparent 45%),
+		radial-gradient(circle at 75% 30%, var(--color-accent-soft, rgba(72,149,255,0.08)), transparent 50%),
+		linear-gradient(160deg, var(--color-accent-soft, rgba(36,134,255,0.04)), transparent 70%);
 	filter: blur(80px) saturate(140%);
-	opacity: .45;
+	opacity: .3;
 	animation-duration: 45s;
 	animation-direction: alternate-reverse;
+	transition: opacity 0.5s ease;
 }
 
 @keyframes enhanced-bg-shift {
@@ -219,11 +221,11 @@ html:after {
 }
 .app-shell { position:relative; z-index:1; }
 
-/* Scrollbar (WebKit) */
+/* Scrollbar (WebKit) - respects theme */
 body::-webkit-scrollbar { width: 10px; }
-body::-webkit-scrollbar-track { background: #0f1419; }
-body::-webkit-scrollbar-thumb { background: #202b35; border-radius: var(--radius-sm); }
-body::-webkit-scrollbar-thumb:hover { background:#2b3945; }
+body::-webkit-scrollbar-track { background: var(--color-background, #0f1419); }
+body::-webkit-scrollbar-thumb { background: var(--color-surface, #202b35); border-radius: var(--radius-sm); }
+body::-webkit-scrollbar-thumb:hover { background: var(--color-surface-2, #2b3945); }
 
 a { color: var(--color-accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
