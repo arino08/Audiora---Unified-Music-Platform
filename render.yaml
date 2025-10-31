@@ -1,0 +1,52 @@
+services:
+  - type: web
+    name: audiora-backend
+    runtime: java
+    plan: free
+    rootDir: backend
+    buildCommand: mvn clean package -DskipTests
+    startCommand: java -jar target/audiora-backend-0.0.1-SNAPSHOT.jar
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: SPRING_PROFILE
+        value: prod
+      - key: BACKEND_BASE_URL
+        sync: false
+      - key: FRONTEND_BASE_URL
+        sync: false
+      - key: SPOTIFY_CLIENT_ID
+        sync: false
+      - key: SPOTIFY_CLIENT_SECRET
+        sync: false
+      - key: YOUTUBE_CLIENT_ID
+        sync: false
+      - key: YOUTUBE_CLIENT_SECRET
+        sync: false
+      - key: EMAIL_USERNAME
+        sync: false
+      - key: EMAIL_PASSWORD
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: DATABASE_URL
+        fromDatabase:
+          name: audiora-db
+          property: connectionString
+      - key: DATABASE_USERNAME
+        fromDatabase:
+          name: audiora-db
+          property: user
+      - key: DATABASE_PASSWORD
+        fromDatabase:
+          name: audiora-db
+          property: password
+      - key: DATABASE_DRIVER
+        value: org.postgresql.Driver
+      - key: HIBERNATE_DIALECT
+        value: org.hibernate.dialect.PostgreSQLDialect
+
+databases:
+  - name: audiora-db
+    plan: free
+    databaseName: audiora
+    user: audiora
