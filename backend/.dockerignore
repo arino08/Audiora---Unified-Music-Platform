@@ -1,0 +1,5 @@
+target/
+!target/audiora-backend-0.0.1-SNAPSHOT.jar
+.mvn/
+mvnw
+mvnw.cmd
