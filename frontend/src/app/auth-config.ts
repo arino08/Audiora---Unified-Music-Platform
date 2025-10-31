@@ -1,3 +1,5 @@
+import { environment } from '../environments/environment';
+
 // Simple auth configuration for email/password authentication
 export interface AuthConfig {
   apiBaseUrl: string;
@@ -8,7 +10,7 @@ export interface AuthConfig {
 
 export const authConfig: AuthConfig = {
   // Backend API base URL
-  apiBaseUrl: `http://${window.location.hostname}:8080/api`,
+  apiBaseUrl: environment.apiUrl,
 
   // Local storage keys
   tokenStorageKey: 'audiora_auth_token',

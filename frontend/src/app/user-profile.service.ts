@@ -3,6 +3,7 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable, throwError } from 'rxjs';
 import { tap, catchError } from 'rxjs/operators';
 import { AuthService } from './auth.service';
+import { environment } from '../environments/environment';
 
 export interface UserProfile {
   id: string;
@@ -28,7 +29,7 @@ export interface ProfileUpdateRequest {
   providedIn: 'root'
 })
 export class UserProfileService {
-  private apiUrl = 'http://localhost:8080/api';
+  private apiUrl = environment.apiUrl;
 
   // Signal to hold current profile
   currentProfile = signal<UserProfile | null>(null);

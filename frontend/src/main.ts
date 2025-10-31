@@ -4,6 +4,7 @@ import { AppComponent } from './app/app.component';
 import { provideHttpClient } from '@angular/common/http';
 import { provideRouter } from '@angular/router';
 import { OAuthModule } from 'angular-oauth2-oidc';
+import { environment } from './environments/environment';
 
 bootstrapApplication(AppComponent, {
   providers: [
@@ -12,7 +13,7 @@ bootstrapApplication(AppComponent, {
     importProvidersFrom(
       OAuthModule.forRoot({
         resourceServer: {
-          allowedUrls: ['http://localhost:8080/api'], // Allow OAuth tokens for backend API calls
+          allowedUrls: [environment.apiUrl], // Allow OAuth tokens for backend API calls
           sendAccessToken: true
         }
       })
