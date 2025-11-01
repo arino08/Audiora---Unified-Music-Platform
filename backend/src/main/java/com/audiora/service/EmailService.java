@@ -2,6 +2,7 @@ package com.audiora.service;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
@@ -9,6 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @Service
+@ConditionalOnBean(JavaMailSender.class)
 public class EmailService {
 
     private static final Logger logger = LoggerFactory.getLogger(EmailService.class);
@@ -20,6 +22,7 @@ public class EmailService {
     public EmailService(JavaMailSender mailSender, @Value("${app.email.from}") String fromEmail) {
         this.mailSender = mailSender;
         this.fromEmail = fromEmail;
+        logger.info("EmailService initialized with mail sender");
     }
 
     public void sendVerificationEmail(String to, String verificationCode) {

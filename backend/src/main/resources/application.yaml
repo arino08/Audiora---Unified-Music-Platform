@@ -39,6 +39,9 @@ spring:
           connectiontimeout: 5000
           timeout: 5000
           writetimeout: 5000
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.mail.MailSenderAutoConfiguration
 app:
   # Base URL used to build OAuth redirect URIs. Spotify no longer allows 'localhost' hostnames; prefer explicit loopback IP.
   backendBaseUrl: ${BACKEND_BASE_URL:http://127.0.0.1:8080}
