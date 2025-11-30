@@ -2,7 +2,6 @@ package com.audiora.service;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
@@ -10,22 +9,38 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @Service
-@ConditionalOnBean(JavaMailSender.class)
 public class EmailService {
 
     private static final Logger logger = LoggerFactory.getLogger(EmailService.class);
 
     private final JavaMailSender mailSender;
     private final String fromEmail;
+    private final boolean emailEnabled;
 
     @Autowired
-    public EmailService(JavaMailSender mailSender, @Value("${app.email.from}") String fromEmail) {
+    public EmailService(
+            @Autowired(required = false) JavaMailSender mailSender,
+            @Value("${app.email.from:noreply@audiora.com}") String fromEmail,
+            @Value("${spring.mail.username:}") String mailUsername) {
         this.mailSender = mailSender;
         this.fromEmail = fromEmail;
-        logger.info("EmailService initialized with mail sender");
+        this.emailEnabled = mailSender != null && mailUsername != null && !mailUsername.isBlank();
+
+        if (this.emailEnabled) {
+            logger.info("EmailService initialized with mail sender - email sending is ENABLED");
+        } else {
+            logger.warn("EmailService initialized WITHOUT mail sender - email sending is DISABLED. " +
+                       "Set EMAIL_USERNAME and EMAIL_PASSWORD environment variables to enable email functionality.");
+        }
     }
 
     public void sendVerificationEmail(String to, String verificationCode) {
+        if (!emailEnabled) {
+            logger.warn("Email sending is disabled. Verification code for {}: {}", to, verificationCode);
+            logger.info("To enable email, configure spring.mail.username and spring.mail.password");
+            return;
+        }
+
         try {
             SimpleMailMessage message = new SimpleMailMessage();
             message.setFrom(fromEmail);
@@ -57,6 +72,12 @@ public class EmailService {
     }
 
     public void sendPasswordResetEmail(String to, String resetCode) {
+        if (!emailEnabled) {
+            logger.warn("Email sending is disabled. Password reset code for {}: {}", to, resetCode);
+            logger.info("To enable email, configure spring.mail.username and spring.mail.password");
+            return;
+        }
+
         try {
             SimpleMailMessage message = new SimpleMailMessage();
             message.setFrom(fromEmail);
@@ -85,5 +106,13 @@ public class EmailService {
             "The Audiora Team",
             resetCode
         );
+    }
+
+    /**
+     * Check if email sending is enabled
+     * @return true if email is configured and enabled, false otherwise
+     */
+    public boolean isEmailEnabled() {
+        return emailEnabled;
     }
 }

@@ -1,7 +1,7 @@
 package com.audiora.service;
 
-import com.audiora.model.TokenInfo;
 import com.audiora.model.Provider;
+import com.audiora.model.TokenInfo;
 import com.audiora.store.InMemoryTokenStore;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Service;
@@ -10,11 +10,17 @@ import reactor.core.publisher.Mono;
 
 @Service
 public class SpotifyApiService {
-    private final WebClient api = WebClient.create("https://api.spotify.com/v1");
+
+    private final WebClient api = WebClient.create(
+        "https://api.spotify.com/v1"
+    );
     private final RefreshService refreshService;
     private final InMemoryTokenStore tokenStore;
 
-    public SpotifyApiService(RefreshService refreshService, InMemoryTokenStore tokenStore) {
+    public SpotifyApiService(
+        RefreshService refreshService,
+        InMemoryTokenStore tokenStore
+    ) {
         this.refreshService = refreshService;
         this.tokenStore = tokenStore;
     }
@@ -22,90 +28,247 @@ public class SpotifyApiService {
     private Mono<TokenInfo> ensureValid(TokenInfo token, String sessionId) {
         if (token == null) return Mono.empty();
         if (!token.isExpired()) return Mono.just(token);
-        return refreshService.refresh(Provider.SPOTIFY, token)
-                .doOnNext(t -> tokenStore.update(sessionId, Provider.SPOTIFY, t));
+        return refreshService
+            .refresh(Provider.SPOTIFY, token)
+            .doOnNext(t -> tokenStore.update(sessionId, Provider.SPOTIFY, t));
     }
 
-    public Mono<String> getCurrentUserPlaylistsRaw(TokenInfo token, String sessionId) {
-        return ensureValid(token, sessionId).switchIfEmpty(Mono.just(token)).flatMap(t -> api.get()
-                .uri(uriBuilder -> uriBuilder.path("/me/playlists").queryParam("limit", 50).build())
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + t.getAccessToken())
-                .retrieve()
-                .bodyToMono(String.class));
+    public Mono<String> getCurrentUserPlaylistsRaw(
+        TokenInfo token,
+        String sessionId
+    ) {
+        return ensureValid(token, sessionId)
+            .switchIfEmpty(Mono.just(token))
+            .flatMap(t ->
+                api
+                    .get()
+                    .uri(uriBuilder ->
+                        uriBuilder
+                            .path("/me/playlists")
+                            .queryParam("limit", 50)
+                            .build()
+                    )
+                    .header(
+                        HttpHeaders.AUTHORIZATION,
+                        "Bearer " + t.getAccessToken()
+                    )
+                    .retrieve()
+                    .bodyToMono(String.class)
+            );
     }
 
-    public Mono<String> getPlaylistTracksRaw(TokenInfo token, String sessionId, String playlistId) {
-        return ensureValid(token, sessionId).switchIfEmpty(Mono.just(token)).flatMap(t -> api.get()
-                .uri(uriBuilder -> uriBuilder.path("/playlists/{playlistId}/tracks")
-                        .queryParam("limit", 50)
-                        .build(playlistId))
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + t.getAccessToken())
-                .retrieve()
-                .bodyToMono(String.class));
+    public Mono<String> getPlaylistTracksRaw(
+        TokenInfo token,
+        String sessionId,
+        String playlistId
+    ) {
+        return ensureValid(token, sessionId)
+            .switchIfEmpty(Mono.just(token))
+            .flatMap(t ->
+                api
+                    .get()
+                    .uri(uriBuilder ->
+                        uriBuilder
+                            .path("/playlists/{playlistId}/tracks")
+                            .queryParam("limit", 50)
+                            .build(playlistId)
+                    )
+                    .header(
+                        HttpHeaders.AUTHORIZATION,
+                        "Bearer " + t.getAccessToken()
+                    )
+                    .retrieve()
+                    .bodyToMono(String.class)
+            );
     }
 
     public Mono<String> getPlaybackStateRaw(TokenInfo token, String sessionId) {
-        return ensureValid(token, sessionId).switchIfEmpty(Mono.just(token)).flatMap(t -> api.get()
-                .uri("/me/player")
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + t.getAccessToken())
-                .retrieve()
-                .bodyToMono(String.class));
+        return ensureValid(token, sessionId)
+            .switchIfEmpty(Mono.just(token))
+            .flatMap(t ->
+                api
+                    .get()
+                    .uri("/me/player")
+                    .header(
+                        HttpHeaders.AUTHORIZATION,
+                        "Bearer " + t.getAccessToken()
+                    )
+                    .retrieve()
+                    .bodyToMono(String.class)
+            );
     }
 
-    public Mono<Integer> resumeOrStartPlayback(TokenInfo token, String sessionId, String jsonBody) {
-        return ensureValid(token, sessionId).switchIfEmpty(Mono.just(token)).flatMap(t -> {
-            WebClient.RequestBodySpec spec = api.put().uri("/me/player/play").header(HttpHeaders.AUTHORIZATION, "Bearer " + t.getAccessToken());
-            if (jsonBody != null) spec = (WebClient.RequestBodySpec) spec.bodyValue(jsonBody);
-            return spec.exchangeToMono(resp -> resp.toBodilessEntity().map(e -> resp.statusCode().value()))
+    public Mono<Integer> resumeOrStartPlayback(
+        TokenInfo token,
+        String sessionId,
+        String jsonBody
+    ) {
+        return ensureValid(token, sessionId)
+            .switchIfEmpty(Mono.just(token))
+            .flatMap(t -> {
+                WebClient.RequestBodySpec spec = api
+                    .put()
+                    .uri("/me/player/play")
+                    .header(
+                        HttpHeaders.AUTHORIZATION,
+                        "Bearer " + t.getAccessToken()
+                    );
+                if (jsonBody != null) spec =
+                    (WebClient.RequestBodySpec) spec.bodyValue(jsonBody);
+                return spec
+                    .exchangeToMono(resp ->
+                        resp
+                            .toBodilessEntity()
+                            .map(e -> resp.statusCode().value())
+                    )
                     .onErrorResume(ex -> Mono.just(-1));
-        });
+            });
     }
 
     public Mono<Integer> pausePlayback(TokenInfo token, String sessionId) {
-    return ensureValid(token, sessionId).switchIfEmpty(Mono.just(token)).flatMap(t -> api.put()
-        .uri("/me/player/pause")
-        .header(HttpHeaders.AUTHORIZATION, "Bearer " + t.getAccessToken())
-        .exchangeToMono(resp -> resp.toBodilessEntity().map(e -> resp.statusCode().value()))
-        .onErrorResume(ex -> Mono.just(-1)));
+        return ensureValid(token, sessionId)
+            .switchIfEmpty(Mono.just(token))
+            .flatMap(t ->
+                api
+                    .put()
+                    .uri("/me/player/pause")
+                    .header(
+                        HttpHeaders.AUTHORIZATION,
+                        "Bearer " + t.getAccessToken()
+                    )
+                    .exchangeToMono(resp ->
+                        resp
+                            .toBodilessEntity()
+                            .map(e -> resp.statusCode().value())
+                    )
+                    .onErrorResume(ex -> Mono.just(-1))
+            );
     }
 
     public Mono<Integer> nextTrack(TokenInfo token, String sessionId) {
-    return ensureValid(token, sessionId).switchIfEmpty(Mono.just(token)).flatMap(t -> api.post()
-        .uri("/me/player/next")
-        .header(HttpHeaders.AUTHORIZATION, "Bearer " + t.getAccessToken())
-        .exchangeToMono(resp -> resp.toBodilessEntity().map(e -> resp.statusCode().value()))
-        .onErrorResume(ex -> Mono.just(-1)));
+        return ensureValid(token, sessionId)
+            .switchIfEmpty(Mono.just(token))
+            .flatMap(t ->
+                api
+                    .post()
+                    .uri("/me/player/next")
+                    .header(
+                        HttpHeaders.AUTHORIZATION,
+                        "Bearer " + t.getAccessToken()
+                    )
+                    .exchangeToMono(resp ->
+                        resp
+                            .toBodilessEntity()
+                            .map(e -> resp.statusCode().value())
+                    )
+                    .onErrorResume(ex -> Mono.just(-1))
+            );
     }
 
     public Mono<Integer> previousTrack(TokenInfo token, String sessionId) {
-    return ensureValid(token, sessionId).switchIfEmpty(Mono.just(token)).flatMap(t -> api.post()
-        .uri("/me/player/previous")
-        .header(HttpHeaders.AUTHORIZATION, "Bearer " + t.getAccessToken())
-        .exchangeToMono(resp -> resp.toBodilessEntity().map(e -> resp.statusCode().value()))
-        .onErrorResume(ex -> Mono.just(-1)));
+        return ensureValid(token, sessionId)
+            .switchIfEmpty(Mono.just(token))
+            .flatMap(t ->
+                api
+                    .post()
+                    .uri("/me/player/previous")
+                    .header(
+                        HttpHeaders.AUTHORIZATION,
+                        "Bearer " + t.getAccessToken()
+                    )
+                    .exchangeToMono(resp ->
+                        resp
+                            .toBodilessEntity()
+                            .map(e -> resp.statusCode().value())
+                    )
+                    .onErrorResume(ex -> Mono.just(-1))
+            );
     }
 
-    public Mono<String> searchTracksRaw(TokenInfo token, String sessionId, String query, int limit) {
-    return ensureValid(token, sessionId).switchIfEmpty(Mono.just(token)).flatMap(t -> api.get()
-        .uri(uriBuilder -> uriBuilder.path("/search")
-            .queryParam("type", "track")
-            .queryParam("q", query)
-            .queryParam("limit", limit)
-            .build())
-        .header(HttpHeaders.AUTHORIZATION, "Bearer " + t.getAccessToken())
-        .retrieve()
-        .bodyToMono(String.class));
+    public Mono<Integer> seekPlayback(
+        TokenInfo token,
+        String sessionId,
+        long positionMs
+    ) {
+        return ensureValid(token, sessionId)
+            .switchIfEmpty(Mono.just(token))
+            .flatMap(t ->
+                api
+                    .put()
+                    .uri(uriBuilder ->
+                        uriBuilder
+                            .path("/me/player/seek")
+                            .queryParam("position_ms", positionMs)
+                            .build()
+                    )
+                    .header(
+                        HttpHeaders.AUTHORIZATION,
+                        "Bearer " + t.getAccessToken()
+                    )
+                    .exchangeToMono(resp ->
+                        resp
+                            .toBodilessEntity()
+                            .map(e -> resp.statusCode().value())
+                    )
+                    .onErrorResume(ex -> Mono.just(-1))
+            );
     }
 
-    public Mono<Integer> transferPlayback(TokenInfo token, String sessionId, String deviceId, boolean play) {
-        String body = "{\"device_ids\":[\"" + deviceId + "\"],\"play\":" + play + "}";
-        return ensureValid(token, sessionId).switchIfEmpty(Mono.just(token)).flatMap(t -> api.put()
-            .uri("/me/player")
-            .header(HttpHeaders.AUTHORIZATION, "Bearer " + t.getAccessToken())
-            .header(HttpHeaders.CONTENT_TYPE, "application/json")
-            .bodyValue(body)
-            .exchangeToMono(resp -> resp.toBodilessEntity().map(e -> resp.statusCode().value()))
-            .onErrorResume(ex -> Mono.just(-1)));
+    public Mono<String> searchTracksRaw(
+        TokenInfo token,
+        String sessionId,
+        String query,
+        int limit
+    ) {
+        return ensureValid(token, sessionId)
+            .switchIfEmpty(Mono.just(token))
+            .flatMap(t ->
+                api
+                    .get()
+                    .uri(uriBuilder ->
+                        uriBuilder
+                            .path("/search")
+                            .queryParam("type", "track")
+                            .queryParam("q", query)
+                            .queryParam("limit", limit)
+                            .build()
+                    )
+                    .header(
+                        HttpHeaders.AUTHORIZATION,
+                        "Bearer " + t.getAccessToken()
+                    )
+                    .retrieve()
+                    .bodyToMono(String.class)
+            );
+    }
+
+    public Mono<Integer> transferPlayback(
+        TokenInfo token,
+        String sessionId,
+        String deviceId,
+        boolean play
+    ) {
+        String body =
+            "{\"device_ids\":[\"" + deviceId + "\"],\"play\":" + play + "}";
+        return ensureValid(token, sessionId)
+            .switchIfEmpty(Mono.just(token))
+            .flatMap(t ->
+                api
+                    .put()
+                    .uri("/me/player")
+                    .header(
+                        HttpHeaders.AUTHORIZATION,
+                        "Bearer " + t.getAccessToken()
+                    )
+                    .header(HttpHeaders.CONTENT_TYPE, "application/json")
+                    .bodyValue(body)
+                    .exchangeToMono(resp ->
+                        resp
+                            .toBodilessEntity()
+                            .map(e -> resp.statusCode().value())
+                    )
+                    .onErrorResume(ex -> Mono.just(-1))
+            );
     }
 
     /**
@@ -117,22 +280,42 @@ public class SpotifyApiService {
      * @param limit Number of recommendations to return (default 3, max 100)
      * @return Raw JSON response from Spotify recommendations API
      */
-    public Mono<String> getRecommendationsRaw(TokenInfo token, String sessionId, String seedTracks,
-                                               String seedArtists, int limit) {
-        return ensureValid(token, sessionId).switchIfEmpty(Mono.just(token)).flatMap(t -> api.get()
-            .uri(uriBuilder -> {
-                var builder = uriBuilder.path("/recommendations")
-                    .queryParam("limit", limit);
-                if (seedTracks != null && !seedTracks.isBlank()) {
-                    builder = builder.queryParam("seed_tracks", seedTracks);
-                }
-                if (seedArtists != null && !seedArtists.isBlank()) {
-                    builder = builder.queryParam("seed_artists", seedArtists);
-                }
-                return builder.build();
-            })
-            .header(HttpHeaders.AUTHORIZATION, "Bearer " + t.getAccessToken())
-            .retrieve()
-            .bodyToMono(String.class));
+    public Mono<String> getRecommendationsRaw(
+        TokenInfo token,
+        String sessionId,
+        String seedTracks,
+        String seedArtists,
+        int limit
+    ) {
+        return ensureValid(token, sessionId)
+            .switchIfEmpty(Mono.just(token))
+            .flatMap(t ->
+                api
+                    .get()
+                    .uri(uriBuilder -> {
+                        var builder = uriBuilder
+                            .path("/recommendations")
+                            .queryParam("limit", limit);
+                        if (seedTracks != null && !seedTracks.isBlank()) {
+                            builder = builder.queryParam(
+                                "seed_tracks",
+                                seedTracks
+                            );
+                        }
+                        if (seedArtists != null && !seedArtists.isBlank()) {
+                            builder = builder.queryParam(
+                                "seed_artists",
+                                seedArtists
+                            );
+                        }
+                        return builder.build();
+                    })
+                    .header(
+                        HttpHeaders.AUTHORIZATION,
+                        "Bearer " + t.getAccessToken()
+                    )
+                    .retrieve()
+                    .bodyToMono(String.class)
+            );
     }
 }

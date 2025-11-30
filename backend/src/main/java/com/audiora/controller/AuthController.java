@@ -1,30 +1,32 @@
 package com.audiora.controller;
 
-import com.audiora.service.AuthLinkBuilder;
-import com.audiora.service.SpotifyAuthService;
-import com.audiora.service.YouTubeAuthService;
-import com.audiora.service.GoogleAuthService;
-import com.audiora.service.UserService;
-import com.audiora.service.JwtService;
-import com.audiora.store.InMemoryTokenStore;
-import com.audiora.model.*;
 import com.audiora.dto.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.ResponseEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.*;
-
+import com.audiora.model.*;
+import com.audiora.service.AuthLinkBuilder;
+import com.audiora.service.GoogleAuthService;
+import com.audiora.service.JwtService;
+import com.audiora.service.SpotifyAuthService;
+import com.audiora.service.UserService;
+import com.audiora.service.YouTubeAuthService;
+import com.audiora.store.InMemoryTokenStore;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
-    private static final Logger log = LoggerFactory.getLogger(AuthController.class);
+
+    private static final Logger log = LoggerFactory.getLogger(
+        AuthController.class
+    );
 
     private final AuthLinkBuilder authLinkBuilder;
     private final SpotifyAuthService spotifyAuthService;
@@ -34,18 +36,39 @@ public class AuthController {
     private final InMemoryTokenStore tokenStore;
     private final JwtService jwtService;
 
-    @Value("${spotify.clientId:}") private String spotifyClientId;
-    @Value("${spotify.clientSecret:}") private String spotifyClientSecret;
-    @Value("${youtube.clientId:}") private String youtubeClientId;
-    @Value("${youtube.clientSecret:}") private String youtubeClientSecret;
-    @Value("${google.clientId:}") private String googleClientId;
-    @Value("${google.clientSecret:}") private String googleClientSecret;
-    @Value("${app.backendBaseUrl:http://127.0.0.1:8080}") private String backendBaseUrl;
-    @Value("${app.frontendBaseUrl:http://localhost:4200}") private String frontendBaseUrl;
+    @Value("${spotify.clientId:}")
+    private String spotifyClientId;
 
-    public AuthController(AuthLinkBuilder authLinkBuilder, SpotifyAuthService spotifyAuthService,
-                         YouTubeAuthService youTubeAuthService, GoogleAuthService googleAuthService,
-                         UserService userService, InMemoryTokenStore tokenStore, JwtService jwtService) {
+    @Value("${spotify.clientSecret:}")
+    private String spotifyClientSecret;
+
+    @Value("${youtube.clientId:}")
+    private String youtubeClientId;
+
+    @Value("${youtube.clientSecret:}")
+    private String youtubeClientSecret;
+
+    @Value("${google.clientId:}")
+    private String googleClientId;
+
+    @Value("${google.clientSecret:}")
+    private String googleClientSecret;
+
+    @Value("${app.backendBaseUrl:http://127.0.0.1:8080}")
+    private String backendBaseUrl;
+
+    @Value("${app.frontendBaseUrl:http://localhost:4200}")
+    private String frontendBaseUrl;
+
+    public AuthController(
+        AuthLinkBuilder authLinkBuilder,
+        SpotifyAuthService spotifyAuthService,
+        YouTubeAuthService youTubeAuthService,
+        GoogleAuthService googleAuthService,
+        UserService userService,
+        InMemoryTokenStore tokenStore,
+        JwtService jwtService
+    ) {
         this.authLinkBuilder = authLinkBuilder;
         this.spotifyAuthService = spotifyAuthService;
         this.youTubeAuthService = youTubeAuthService;
@@ -56,22 +79,36 @@ public class AuthController {
     }
 
     @GetMapping("/spotify/login")
-    public Map<String, String> spotifyLogin(@RequestParam(name = "sessionId", required = false) String sessionId) {
-        return Map.of("authUrl", authLinkBuilder.buildSpotifyAuthorizeUrl(sessionId));
+    public Map<String, String> spotifyLogin(
+        @RequestParam(name = "sessionId", required = false) String sessionId
+    ) {
+        return Map.of(
+            "authUrl",
+            authLinkBuilder.buildSpotifyAuthorizeUrl(sessionId)
+        );
     }
 
     @GetMapping("/spotify/callback")
-    public ResponseEntity<?> spotifyCallback(@RequestParam(name = "code", required = false) String code,
-                                             @RequestParam(name = "error", required = false) String error,
-                                             @RequestParam(name = "state", required = false) String state) {
+    public ResponseEntity<?> spotifyCallback(
+        @RequestParam(name = "code", required = false) String code,
+        @RequestParam(name = "error", required = false) String error,
+        @RequestParam(name = "state", required = false) String state
+    ) {
         if (error != null) {
             return redirectError("spotify", error);
         }
         String redirectUri = backendBaseUrl + "/api/auth/spotify/callback";
-        return spotifyAuthService.exchangeCodeForToken(spotifyClientId, spotifyClientSecret, redirectUri, code)
+        return spotifyAuthService
+            .exchangeCodeForToken(
+                spotifyClientId,
+                spotifyClientSecret,
+                redirectUri,
+                code
+            )
             .flatMap(tokenResp -> {
                 // Get user info from Spotify
-                return spotifyAuthService.getUserInfo(tokenResp.getAccessToken())
+                return spotifyAuthService
+                    .getUserInfo(tokenResp.getAccessToken())
                     .map(userInfo -> {
                         // Create or update user in our system
                         User user = userService.createOrUpdateUser(
@@ -85,37 +122,71 @@ public class AuthController {
                         );
 
                         // Store Spotify tokens in token store
-                        TokenInfo ti = new TokenInfo(tokenResp.getAccessToken(), tokenResp.getRefreshToken(),
-                            java.time.Instant.now().plusSeconds(tokenResp.getExpiresIn()),
-                            tokenResp.getScope(), tokenResp.getTokenType());
+                        TokenInfo ti = new TokenInfo(
+                            tokenResp.getAccessToken(),
+                            tokenResp.getRefreshToken(),
+                            java.time.Instant.now().plusSeconds(
+                                tokenResp.getExpiresIn()
+                            ),
+                            tokenResp.getScope(),
+                            tokenResp.getTokenType()
+                        );
 
-                        String existingSession = (state != null && state.startsWith("sess_")) ? state.substring(5) : null;
-                        String sessionId = tokenStore.createOrUpdate(existingSession, Provider.SPOTIFY, ti);
+                        String existingSession = (state != null &&
+                                state.startsWith("sess_"))
+                            ? state.substring(5)
+                            : null;
+                        String sessionId = tokenStore.createOrUpdate(
+                            existingSession,
+                            Provider.SPOTIFY,
+                            ti
+                        );
 
                         // Redirect with both session ID and user ID for frontend integration
-                        return buildRedirect(frontendBaseUrl + "?sessionId=" + sessionId + "&userId=" + user.getId() + "#provider=spotify");
+                        return buildRedirect(
+                            frontendBaseUrl +
+                                "/oauth/callback?sessionId=" +
+                                sessionId +
+                                "&userId=" +
+                                user.getId() +
+                                "&provider=spotify"
+                        );
                     });
             })
             .block();
     }
 
     @GetMapping("/youtube/login")
-    public Map<String, String> youtubeLogin(@RequestParam(name = "sessionId", required = false) String sessionId) {
-        return Map.of("authUrl", authLinkBuilder.buildYouTubeAuthorizeUrl(sessionId));
+    public Map<String, String> youtubeLogin(
+        @RequestParam(name = "sessionId", required = false) String sessionId
+    ) {
+        return Map.of(
+            "authUrl",
+            authLinkBuilder.buildYouTubeAuthorizeUrl(sessionId)
+        );
     }
 
     @GetMapping("/youtube/callback")
-    public ResponseEntity<?> youtubeCallback(@RequestParam(name = "code", required = false) String code,
-                                             @RequestParam(name = "error", required = false) String error,
-                                             @RequestParam(name = "state", required = false) String state) {
+    public ResponseEntity<?> youtubeCallback(
+        @RequestParam(name = "code", required = false) String code,
+        @RequestParam(name = "error", required = false) String error,
+        @RequestParam(name = "state", required = false) String state
+    ) {
         if (error != null) {
             return redirectError("youtube", error);
         }
         String redirectUri = backendBaseUrl + "/api/auth/youtube/callback";
-        return youTubeAuthService.exchangeCodeForToken(youtubeClientId, youtubeClientSecret, redirectUri, code)
+        return youTubeAuthService
+            .exchangeCodeForToken(
+                youtubeClientId,
+                youtubeClientSecret,
+                redirectUri,
+                code
+            )
             .flatMap(tokenResp -> {
                 // Get user info from Google (YouTube uses Google auth)
-                return youTubeAuthService.getUserInfo(tokenResp.getAccessToken())
+                return youTubeAuthService
+                    .getUserInfo(tokenResp.getAccessToken())
                     .map(userInfo -> {
                         // Create or update user in our system
                         User user = userService.createOrUpdateUser(
@@ -129,15 +200,35 @@ public class AuthController {
                         );
 
                         // Store YouTube tokens in token store
-                        TokenInfo ti = new TokenInfo(tokenResp.getAccessToken(), tokenResp.getRefreshToken(),
-                            java.time.Instant.now().plusSeconds(tokenResp.getExpiresIn()),
-                            tokenResp.getScope(), tokenResp.getTokenType());
+                        TokenInfo ti = new TokenInfo(
+                            tokenResp.getAccessToken(),
+                            tokenResp.getRefreshToken(),
+                            java.time.Instant.now().plusSeconds(
+                                tokenResp.getExpiresIn()
+                            ),
+                            tokenResp.getScope(),
+                            tokenResp.getTokenType()
+                        );
 
-                        String existingSession = (state != null && state.startsWith("sess_")) ? state.substring(5) : null;
-                        String sessionId = tokenStore.createOrUpdate(existingSession, Provider.YOUTUBE, ti);
+                        String existingSession = (state != null &&
+                                state.startsWith("sess_"))
+                            ? state.substring(5)
+                            : null;
+                        String sessionId = tokenStore.createOrUpdate(
+                            existingSession,
+                            Provider.YOUTUBE,
+                            ti
+                        );
 
                         // Redirect with both session ID and user ID for frontend integration
-                        return buildRedirect(frontendBaseUrl + "?sessionId=" + sessionId + "&userId=" + user.getId() + "#provider=youtube");
+                        return buildRedirect(
+                            frontendBaseUrl +
+                                "/oauth/callback?sessionId=" +
+                                sessionId +
+                                "&userId=" +
+                                user.getId() +
+                                "&provider=youtube"
+                        );
                     });
             })
             .block();
@@ -150,26 +241,46 @@ public class AuthController {
     }
 
     private ResponseEntity<?> redirectError(String provider, String error) {
-        return buildRedirect(frontendBaseUrl + "?authError=" + error + "#provider=" + provider);
+        return buildRedirect(
+            frontendBaseUrl +
+                "/oauth/callback?error=" +
+                error +
+                "&provider=" +
+                provider
+        );
     }
 
     @GetMapping("/google/login")
-    public Map<String, String> googleLogin(@RequestParam(name = "sessionId", required = false) String sessionId) {
-        return Map.of("authUrl", authLinkBuilder.buildGoogleAuthorizeUrl(sessionId));
+    public Map<String, String> googleLogin(
+        @RequestParam(name = "sessionId", required = false) String sessionId
+    ) {
+        return Map.of(
+            "authUrl",
+            authLinkBuilder.buildGoogleAuthorizeUrl(sessionId)
+        );
     }
 
     @GetMapping("/google/callback")
-    public ResponseEntity<?> googleCallback(@RequestParam(name = "code", required = false) String code,
-                                           @RequestParam(name = "error", required = false) String error,
-                                           @RequestParam(name = "state", required = false) String state) {
+    public ResponseEntity<?> googleCallback(
+        @RequestParam(name = "code", required = false) String code,
+        @RequestParam(name = "error", required = false) String error,
+        @RequestParam(name = "state", required = false) String state
+    ) {
         if (error != null) {
             return redirectError("google", error);
         }
         String redirectUri = backendBaseUrl + "/api/auth/google/callback";
-        return googleAuthService.exchangeCodeForToken(googleClientId, googleClientSecret, redirectUri, code)
+        return googleAuthService
+            .exchangeCodeForToken(
+                googleClientId,
+                googleClientSecret,
+                redirectUri,
+                code
+            )
             .flatMap(tokenResp -> {
                 // Get user info from Google to create/update user
-                return googleAuthService.getUserInfo(tokenResp.getAccessToken())
+                return googleAuthService
+                    .getUserInfo(tokenResp.getAccessToken())
                     .map(userInfo -> {
                         // Create or update user in our system
                         User user = userService.createOrUpdateUser(
@@ -183,15 +294,35 @@ public class AuthController {
                         );
 
                         // Store Google tokens in token store
-                        TokenInfo ti = new TokenInfo(tokenResp.getAccessToken(), tokenResp.getRefreshToken(),
-                            java.time.Instant.now().plusSeconds(tokenResp.getExpiresIn()),
-                            tokenResp.getScope(), tokenResp.getTokenType());
+                        TokenInfo ti = new TokenInfo(
+                            tokenResp.getAccessToken(),
+                            tokenResp.getRefreshToken(),
+                            java.time.Instant.now().plusSeconds(
+                                tokenResp.getExpiresIn()
+                            ),
+                            tokenResp.getScope(),
+                            tokenResp.getTokenType()
+                        );
 
-                        String existingSession = (state != null && state.startsWith("sess_")) ? state.substring(5) : null;
-                        String sessionId = tokenStore.createOrUpdate(existingSession, Provider.GOOGLE, ti);
+                        String existingSession = (state != null &&
+                                state.startsWith("sess_"))
+                            ? state.substring(5)
+                            : null;
+                        String sessionId = tokenStore.createOrUpdate(
+                            existingSession,
+                            Provider.GOOGLE,
+                            ti
+                        );
 
                         // Redirect with both session ID and user ID for frontend integration
-                        return buildRedirect(frontendBaseUrl + "?sessionId=" + sessionId + "&userId=" + user.getId() + "#provider=google");
+                        return buildRedirect(
+                            frontendBaseUrl +
+                                "?sessionId=" +
+                                sessionId +
+                                "&userId=" +
+                                user.getId() +
+                                "#provider=google"
+                        );
                     });
             })
             .block();
@@ -203,26 +334,50 @@ public class AuthController {
     public ResponseEntity<?> register(@RequestBody RegisterRequest request) {
         try {
             // Validate input
-            if (request.getEmail() == null || request.getEmail().trim().isEmpty()) {
-                return ResponseEntity.badRequest().body(Map.of("error", "Email is required"));
+            if (
+                request.getEmail() == null ||
+                request.getEmail().trim().isEmpty()
+            ) {
+                return ResponseEntity.badRequest().body(
+                    Map.of("error", "Email is required")
+                );
             }
-            if (request.getName() == null || request.getName().trim().isEmpty()) {
-                return ResponseEntity.badRequest().body(Map.of("error", "Name is required"));
+            if (
+                request.getName() == null || request.getName().trim().isEmpty()
+            ) {
+                return ResponseEntity.badRequest().body(
+                    Map.of("error", "Name is required")
+                );
             }
-            if (request.getPassword() == null || request.getPassword().length() < 6) {
-                return ResponseEntity.badRequest().body(Map.of("error", "Password must be at least 6 characters"));
+            if (
+                request.getPassword() == null ||
+                request.getPassword().length() < 6
+            ) {
+                return ResponseEntity.badRequest().body(
+                    Map.of("error", "Password must be at least 6 characters")
+                );
             }
 
             // Create user
-            userService.createUser(request.getEmail(), request.getName(), request.getPassword());
+            userService.createUser(
+                request.getEmail(),
+                request.getName(),
+                request.getPassword()
+            );
 
-            return ResponseEntity.ok(new AuthResponse("Registration successful. Please check your email to verify your account."));
-
+            return ResponseEntity.ok(
+                new AuthResponse(
+                    "Registration successful. Please check your email to verify your account."
+                )
+            );
         } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(
+                Map.of("error", e.getMessage())
+            );
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "Registration failed"));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                Map.of("error", "Registration failed")
+            );
         }
     }
 
@@ -230,87 +385,128 @@ public class AuthController {
     public ResponseEntity<?> login(@RequestBody AuthRequest request) {
         try {
             // Validate input
-            if (request.getEmail() == null || request.getEmail().trim().isEmpty()) {
-                return ResponseEntity.badRequest().body(Map.of("error", "Email is required"));
+            if (
+                request.getEmail() == null ||
+                request.getEmail().trim().isEmpty()
+            ) {
+                return ResponseEntity.badRequest().body(
+                    Map.of("error", "Email is required")
+                );
             }
-            if (request.getPassword() == null || request.getPassword().trim().isEmpty()) {
-                return ResponseEntity.badRequest().body(Map.of("error", "Password is required"));
+            if (
+                request.getPassword() == null ||
+                request.getPassword().trim().isEmpty()
+            ) {
+                return ResponseEntity.badRequest().body(
+                    Map.of("error", "Password is required")
+                );
             }
 
             // Authenticate user
-            Optional<User> userOpt = userService.authenticateUser(request.getEmail(), request.getPassword());
+            Optional<User> userOpt = userService.authenticateUser(
+                request.getEmail(),
+                request.getPassword()
+            );
             if (userOpt.isEmpty()) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                        .body(Map.of("error", "Invalid email or password"));
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
+                    Map.of("error", "Invalid email or password")
+                );
             }
 
             User user = userOpt.get();
 
             // Generate JWT token
-            String token = jwtService.generateToken(user.getId().toString(), user.getEmail());
+            String token = jwtService.generateToken(
+                user.getId().toString(),
+                user.getEmail()
+            );
 
             // Create user profile response
             AuthResponse.UserProfile userProfile = new AuthResponse.UserProfile(
-                    user.getId().toString(), user.getEmail(), user.getName(), user.isEmailVerified());
+                user.getId().toString(),
+                user.getEmail(),
+                user.getName(),
+                user.isEmailVerified()
+            );
 
             return ResponseEntity.ok(new AuthResponse(token, userProfile));
-
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "Login failed"));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                Map.of("error", "Login failed")
+            );
         }
     }
 
     @PostMapping("/verify")
-    public ResponseEntity<?> verifyEmail(@RequestBody Map<String, String> request) {
+    public ResponseEntity<?> verifyEmail(
+        @RequestBody Map<String, String> request
+    ) {
         try {
             String email = request.get("email");
             String code = request.get("code");
 
             if (email == null || code == null) {
-                return ResponseEntity.badRequest().body(Map.of("error", "Email and verification code are required"));
+                return ResponseEntity.badRequest().body(
+                    Map.of("error", "Email and verification code are required")
+                );
             }
 
             boolean verified = userService.verifyEmail(email, code);
             if (verified) {
-                return ResponseEntity.ok(Map.of("message", "Email verified successfully"));
+                return ResponseEntity.ok(
+                    Map.of("message", "Email verified successfully")
+                );
             } else {
-                return ResponseEntity.badRequest().body(Map.of("error", "Invalid or expired verification code"));
+                return ResponseEntity.badRequest().body(
+                    Map.of("error", "Invalid or expired verification code")
+                );
             }
-
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "Email verification failed"));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                Map.of("error", "Email verification failed")
+            );
         }
     }
 
     @PostMapping("/resend-verification")
-    public ResponseEntity<?> resendVerificationCode(@RequestBody Map<String, String> request) {
+    public ResponseEntity<?> resendVerificationCode(
+        @RequestBody Map<String, String> request
+    ) {
         try {
             String email = request.get("email");
             if (email == null || email.trim().isEmpty()) {
-                return ResponseEntity.badRequest().body(Map.of("error", "Email is required"));
+                return ResponseEntity.badRequest().body(
+                    Map.of("error", "Email is required")
+                );
             }
 
             // Generate new verification code and send email
             userService.generateNewVerificationCode(email);
 
-            return ResponseEntity.ok(Map.of("message", "New verification code sent to your email"));
-
+            return ResponseEntity.ok(
+                Map.of("message", "New verification code sent to your email")
+            );
         } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(
+                Map.of("error", e.getMessage())
+            );
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "Failed to resend verification code"));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                Map.of("error", "Failed to resend verification code")
+            );
         }
     }
 
     @PostMapping("/forgot-password")
-    public ResponseEntity<?> forgotPassword(@RequestBody Map<String, String> request) {
+    public ResponseEntity<?> forgotPassword(
+        @RequestBody Map<String, String> request
+    ) {
         try {
             String email = request.get("email");
             if (email == null || email.trim().isEmpty()) {
-                return ResponseEntity.badRequest().body(Map.of("error", "Email is required"));
+                return ResponseEntity.badRequest().body(
+                    Map.of("error", "Email is required")
+                );
             }
 
             // Generate new verification code (we'll use this as password reset code)
@@ -320,43 +516,60 @@ public class AuthController {
             log.info("Password reset code generated for email: {}", email);
             log.debug("Password reset code: {}", resetCode); // Only in debug mode
 
-            return ResponseEntity.ok(Map.of("message", "Password reset code sent to your email"));
-
+            return ResponseEntity.ok(
+                Map.of("message", "Password reset code sent to your email")
+            );
         } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(
+                Map.of("error", e.getMessage())
+            );
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "Failed to send reset code"));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                Map.of("error", "Failed to send reset code")
+            );
         }
     }
 
     @PostMapping("/reset-password")
-    public ResponseEntity<?> resetPassword(@RequestBody Map<String, String> request) {
+    public ResponseEntity<?> resetPassword(
+        @RequestBody Map<String, String> request
+    ) {
         try {
             String email = request.get("email");
             String code = request.get("code");
             String newPassword = request.get("password");
 
             if (email == null || code == null || newPassword == null) {
-                return ResponseEntity.badRequest().body(Map.of("error", "Email, code, and new password are required"));
+                return ResponseEntity.badRequest().body(
+                    Map.of(
+                        "error",
+                        "Email, code, and new password are required"
+                    )
+                );
             }
 
             if (newPassword.length() < 6) {
-                return ResponseEntity.badRequest().body(Map.of("error", "Password must be at least 6 characters"));
+                return ResponseEntity.badRequest().body(
+                    Map.of("error", "Password must be at least 6 characters")
+                );
             }
 
             // Verify the reset code first
             if (!userService.verifyEmail(email, code)) {
-                return ResponseEntity.badRequest().body(Map.of("error", "Invalid or expired reset code"));
+                return ResponseEntity.badRequest().body(
+                    Map.of("error", "Invalid or expired reset code")
+                );
             }
 
             // TODO: Update user password
 
-            return ResponseEntity.ok(Map.of("message", "Password reset successfully"));
-
+            return ResponseEntity.ok(
+                Map.of("message", "Password reset successfully")
+            );
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "Password reset failed"));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                Map.of("error", "Password reset failed")
+            );
         }
     }
 
@@ -368,11 +581,17 @@ public class AuthController {
     }
 
     @GetMapping("/profile")
-    public ResponseEntity<?> getProfile(@RequestHeader(value = "Authorization", required = false) String authHeader) {
+    public ResponseEntity<?> getProfile(
+        @RequestHeader(
+            value = "Authorization",
+            required = false
+        ) String authHeader
+    ) {
         try {
             if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                        .body(Map.of("error", "Authorization header required"));
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
+                    Map.of("error", "Authorization header required")
+                );
             }
 
             String token = authHeader.substring(7);
@@ -381,19 +600,24 @@ public class AuthController {
 
             Optional<User> userOpt = userService.getUserById(userId);
             if (userOpt.isEmpty()) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                        .body(Map.of("error", "User not found"));
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
+                    Map.of("error", "User not found")
+                );
             }
 
             User user = userOpt.get();
             AuthResponse.UserProfile userProfile = new AuthResponse.UserProfile(
-                    user.getId().toString(), user.getEmail(), user.getName(), user.isEmailVerified());
+                user.getId().toString(),
+                user.getEmail(),
+                user.getName(),
+                user.isEmailVerified()
+            );
 
             return ResponseEntity.ok(userProfile);
-
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("error", "Invalid token"));
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
+                Map.of("error", "Invalid token")
+            );
         }
     }
 
@@ -402,48 +626,207 @@ public class AuthController {
      * This endpoint allows the frontend to convert a sessionId from OAuth callback into a JWT token
      */
     @PostMapping("/oauth/exchange")
-    public ResponseEntity<?> exchangeOAuthSession(@RequestBody Map<String, String> request) {
+    public ResponseEntity<?> exchangeOAuthSession(
+        @RequestBody Map<String, String> request
+    ) {
         try {
             String sessionId = request.get("sessionId");
             String userIdString = request.get("userId");
 
             if (sessionId == null || userIdString == null) {
-                return ResponseEntity.badRequest()
-                        .body(Map.of("error", "SessionId and userId are required"));
+                return ResponseEntity.badRequest().body(
+                    Map.of("error", "SessionId and userId are required")
+                );
             }
 
             // Verify the user exists
             UUID userId = UUID.fromString(userIdString);
             Optional<User> userOpt = userService.getUserById(userId);
             if (userOpt.isEmpty()) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                        .body(Map.of("error", "User not found"));
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
+                    Map.of("error", "User not found")
+                );
             }
 
             User user = userOpt.get();
 
             // Verify that at least one OAuth token exists for this session
-            boolean hasSpotifyToken = tokenStore.get(sessionId, Provider.SPOTIFY) != null;
-            boolean hasYouTubeToken = tokenStore.get(sessionId, Provider.YOUTUBE) != null;
-            boolean hasGoogleToken = tokenStore.get(sessionId, Provider.GOOGLE) != null;
+            boolean hasSpotifyToken =
+                tokenStore.get(sessionId, Provider.SPOTIFY) != null;
+            boolean hasYouTubeToken =
+                tokenStore.get(sessionId, Provider.YOUTUBE) != null;
+            boolean hasGoogleToken =
+                tokenStore.get(sessionId, Provider.GOOGLE) != null;
 
             if (!hasSpotifyToken && !hasYouTubeToken && !hasGoogleToken) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                        .body(Map.of("error", "No valid OAuth session found"));
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
+                    Map.of("error", "No valid OAuth session found")
+                );
             }
 
             // Generate JWT token for the user
-            String jwtToken = jwtService.generateToken(user.getId().toString(), user.getEmail());
+            String jwtToken = jwtService.generateToken(
+                user.getId().toString(),
+                user.getEmail()
+            );
 
             // Create user profile response
             AuthResponse.UserProfile userProfile = new AuthResponse.UserProfile(
-                    user.getId().toString(), user.getEmail(), user.getName(), user.isEmailVerified());
+                user.getId().toString(),
+                user.getEmail(),
+                user.getName(),
+                user.isEmailVerified()
+            );
 
             return ResponseEntity.ok(new AuthResponse(jwtToken, userProfile));
-
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "OAuth exchange failed"));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                Map.of("error", "OAuth exchange failed")
+            );
+        }
+    }
+
+    /**
+     * Refresh JWT token endpoint
+     * Accepts either a refreshToken in body or validates the current Authorization header
+     */
+    @PostMapping("/refresh")
+    public ResponseEntity<?> refreshToken(
+        @RequestBody(required = false) Map<String, String> body,
+        @RequestHeader(
+            name = "Authorization",
+            required = false
+        ) String authHeader
+    ) {
+        try {
+            String tokenToValidate = null;
+
+            // Try to get token from body first (refreshToken field)
+            if (body != null && body.get("refreshToken") != null) {
+                tokenToValidate = body.get("refreshToken");
+            }
+            // Fall back to Authorization header
+            else if (authHeader != null && authHeader.startsWith("Bearer ")) {
+                tokenToValidate = authHeader.substring(7);
+            }
+
+            if (tokenToValidate == null || tokenToValidate.isBlank()) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
+                    Map.of("error", "No token provided")
+                );
+            }
+
+            // Validate the token and get user info
+            String userId;
+            String email;
+            try {
+                userId = jwtService.getUserIdFromToken(tokenToValidate);
+                email = jwtService.getEmailFromToken(tokenToValidate);
+            } catch (Exception e) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
+                    Map.of("error", "Invalid or expired token")
+                );
+            }
+
+            // Get the user from database to ensure they still exist
+            Optional<User> userOpt = userService.getUserById(
+                java.util.UUID.fromString(userId)
+            );
+            if (userOpt.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
+                    Map.of("error", "User not found")
+                );
+            }
+
+            User user = userOpt.get();
+
+            // Generate a new token
+            String newToken = jwtService.generateToken(
+                user.getId().toString(),
+                user.getEmail()
+            );
+
+            // Create response with new token
+            AuthResponse.UserProfile userProfile = new AuthResponse.UserProfile(
+                user.getId().toString(),
+                user.getEmail(),
+                user.getName(),
+                user.isEmailVerified()
+            );
+
+            // Return response matching frontend expectations
+            return ResponseEntity.ok(
+                Map.of(
+                    "accessToken",
+                    newToken,
+                    "refreshToken",
+                    newToken, // For simplicity, same token serves as refresh
+                    "expiresIn",
+                    86400, // 24 hours
+                    "user",
+                    userProfile
+                )
+            );
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                Map.of("error", "Token refresh failed: " + e.getMessage())
+            );
+        }
+    }
+
+    /**
+     * Disconnect a provider (Spotify, YouTube, etc.)
+     * Removes the provider's tokens from the session
+     */
+    @DeleteMapping("/oauth/{provider}/disconnect")
+    public ResponseEntity<?> disconnectProvider(
+        @PathVariable String provider,
+        @RequestHeader(name = "X-Session-Id", required = false) String sessionId
+    ) {
+        try {
+            if (sessionId == null || sessionId.isBlank()) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    Map.of("error", "X-Session-Id header required")
+                );
+            }
+
+            Provider providerEnum;
+            try {
+                providerEnum = Provider.valueOf(provider.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    Map.of("error", "Invalid provider: " + provider)
+                );
+            }
+
+            boolean removed = tokenStore.remove(sessionId, providerEnum);
+
+            if (removed) {
+                return ResponseEntity.ok(
+                    Map.of(
+                        "success",
+                        true,
+                        "message",
+                        provider + " disconnected successfully"
+                    )
+                );
+            } else {
+                return ResponseEntity.ok(
+                    Map.of(
+                        "success",
+                        true,
+                        "message",
+                        provider + " was not connected"
+                    )
+                );
+            }
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                Map.of(
+                    "error",
+                    "Failed to disconnect " + provider + ": " + e.getMessage()
+                )
+            );
         }
     }
 }

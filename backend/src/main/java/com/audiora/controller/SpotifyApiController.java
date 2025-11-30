@@ -1,51 +1,174 @@
 package com.audiora.controller;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.audiora.store.InMemoryTokenStore;
 import com.audiora.model.Provider;
 import com.audiora.model.TokenInfo;
 import com.audiora.service.SpotifyApiService;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RequestHeader;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
-
+import com.audiora.service.SpotifyAuthService;
+import com.audiora.store.InMemoryTokenStore;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/spotify")
 public class SpotifyApiController {
+
     private final InMemoryTokenStore tokenStore;
     private final SpotifyApiService spotifyApiService;
+    private final SpotifyAuthService spotifyAuthService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public SpotifyApiController(InMemoryTokenStore tokenStore, SpotifyApiService spotifyApiService) {
+    public SpotifyApiController(
+        InMemoryTokenStore tokenStore,
+        SpotifyApiService spotifyApiService,
+        SpotifyAuthService spotifyAuthService
+    ) {
         this.tokenStore = tokenStore;
         this.spotifyApiService = spotifyApiService;
+        this.spotifyAuthService = spotifyAuthService;
+    }
+
+    /**
+     * Get access token for Spotify Web Playback SDK
+     * This endpoint returns the current access token that can be used with the SDK
+     */
+    @GetMapping("/token")
+    public ResponseEntity<?> getAccessToken(
+        @RequestHeader(name = "X-Session-Id", required = false) String sessionId
+    ) {
+        if (sessionId == null || sessionId.isBlank()) {
+            return ResponseEntity.status(401).body(
+                Map.of(
+                    "error",
+                    "missing_session",
+                    "message",
+                    "X-Session-Id header required"
+                )
+            );
+        }
+
+        TokenInfo token = tokenStore.get(sessionId, Provider.SPOTIFY);
+        if (token == null) {
+            return ResponseEntity.status(401).body(
+                Map.of(
+                    "error",
+                    "invalid_session",
+                    "message",
+                    "No Spotify session found"
+                )
+            );
+        }
+
+        // Check if token is expired and try to refresh
+        if (
+            token.getExpiresAt() != null &&
+            token.getExpiresAt().isBefore(Instant.now())
+        ) {
+            // Try to refresh the token
+            if (token.getRefreshToken() != null) {
+                try {
+                    TokenInfo refreshedToken = spotifyAuthService
+                        .refreshAccessToken(token.getRefreshToken())
+                        .block();
+                    if (refreshedToken != null) {
+                        // Store the refreshed token
+                        tokenStore.update(
+                            sessionId,
+                            Provider.SPOTIFY,
+                            refreshedToken
+                        );
+                        token = refreshedToken;
+                    } else {
+                        return ResponseEntity.status(401).body(
+                            Map.of(
+                                "error",
+                                "token_refresh_failed",
+                                "message",
+                                "Failed to refresh token"
+                            )
+                        );
+                    }
+                } catch (Exception e) {
+                    return ResponseEntity.status(401).body(
+                        Map.of(
+                            "error",
+                            "token_refresh_failed",
+                            "message",
+                            e.getMessage()
+                        )
+                    );
+                }
+            } else {
+                return ResponseEntity.status(401).body(
+                    Map.of(
+                        "error",
+                        "token_expired_no_refresh",
+                        "message",
+                        "Your Spotify session has expired. Please disconnect and reconnect Spotify from Settings to continue.",
+                        "action",
+                        "reconnect"
+                    )
+                );
+            }
+        }
+
+        return ResponseEntity.ok(
+            Map.of(
+                "accessToken",
+                token.getAccessToken(),
+                "expiresAt",
+                token.getExpiresAt() != null
+                    ? token.getExpiresAt().toEpochMilli()
+                    : null
+            )
+        );
     }
 
     @GetMapping("/playlists")
-    public ResponseEntity<?> playlists(@RequestHeader(name = "X-Session-Id", required = false) String sessionId) {
+    public ResponseEntity<?> playlists(
+        @RequestHeader(name = "X-Session-Id", required = false) String sessionId
+    ) {
         if (sessionId == null || sessionId.isBlank()) {
-            return ResponseEntity.status(401).body(Map.of("error", "missing_session", "message", "X-Session-Id header required"));
+            return ResponseEntity.status(401).body(
+                Map.of(
+                    "error",
+                    "missing_session",
+                    "message",
+                    "X-Session-Id header required"
+                )
+            );
         }
         TokenInfo token = tokenStore.get(sessionId, Provider.SPOTIFY);
         if (token == null) {
-            return ResponseEntity.status(401).body(Map.of("error", "invalid_session"));
+            return ResponseEntity.status(401).body(
+                Map.of("error", "invalid_session")
+            );
         }
-        if (token.getExpiresAt() != null && token.getExpiresAt().isBefore(Instant.now())) {
-            return ResponseEntity.status(401).body(Map.of("error", "token_expired"));
+        if (
+            token.getExpiresAt() != null &&
+            token.getExpiresAt().isBefore(Instant.now())
+        ) {
+            return ResponseEntity.status(401).body(
+                Map.of("error", "token_expired")
+            );
         }
-    String raw = spotifyApiService.getCurrentUserPlaylistsRaw(token, sessionId).block();
+        String raw = spotifyApiService
+            .getCurrentUserPlaylistsRaw(token, sessionId)
+            .block();
         if (raw == null) {
-            return ResponseEntity.internalServerError().body(Map.of("error", "spotify_unreachable"));
+            return ResponseEntity.internalServerError().body(
+                Map.of("error", "spotify_unreachable")
+            );
         }
         try {
             JsonNode root = objectMapper.readTree(raw);
@@ -60,36 +183,62 @@ public class SpotifyApiController {
                     if (images.isArray() && images.size() > 0) {
                         image = images.get(0).path("url").asText(null);
                     }
-                    items.add(Map.of(
-                            "id", id,
-                            "name", name,
-                            "tracks", trackCount,
-                            "image", image
-                    ));
+                    items.add(
+                        Map.of(
+                            "id",
+                            id,
+                            "name",
+                            name,
+                            "tracks",
+                            trackCount,
+                            "image",
+                            image
+                        )
+                    );
                 }
             }
             return ResponseEntity.ok(Map.of("items", items));
         } catch (Exception e) {
-            return ResponseEntity.internalServerError().body(Map.of("error", "parse_failed", "details", e.getMessage()));
+            return ResponseEntity.internalServerError().body(
+                Map.of("error", "parse_failed", "details", e.getMessage())
+            );
         }
     }
 
     @GetMapping("/playlists/{playlistId}/tracks")
-    public ResponseEntity<?> playlistTracks(@RequestHeader(name = "X-Session-Id", required = false) String sessionId,
-                                           @PathVariable String playlistId) {
+    public ResponseEntity<?> playlistTracks(
+        @RequestHeader(
+            name = "X-Session-Id",
+            required = false
+        ) String sessionId,
+        @PathVariable String playlistId
+    ) {
         if (sessionId == null || sessionId.isBlank()) {
-            return ResponseEntity.status(401).body(Map.of("error", "missing_session"));
+            return ResponseEntity.status(401).body(
+                Map.of("error", "missing_session")
+            );
         }
         TokenInfo token = tokenStore.get(sessionId, Provider.SPOTIFY);
         if (token == null) {
-            return ResponseEntity.status(401).body(Map.of("error", "invalid_session"));
+            return ResponseEntity.status(401).body(
+                Map.of("error", "invalid_session")
+            );
         }
-        if (token.getExpiresAt() != null && token.getExpiresAt().isBefore(Instant.now())) {
-            return ResponseEntity.status(401).body(Map.of("error", "token_expired"));
+        if (
+            token.getExpiresAt() != null &&
+            token.getExpiresAt().isBefore(Instant.now())
+        ) {
+            return ResponseEntity.status(401).body(
+                Map.of("error", "token_expired")
+            );
         }
-        String raw = spotifyApiService.getPlaylistTracksRaw(token, sessionId, playlistId).block();
+        String raw = spotifyApiService
+            .getPlaylistTracksRaw(token, sessionId, playlistId)
+            .block();
         if (raw == null) {
-            return ResponseEntity.internalServerError().body(Map.of("error", "spotify_unreachable"));
+            return ResponseEntity.internalServerError().body(
+                Map.of("error", "spotify_unreachable")
+            );
         }
         try {
             JsonNode root = objectMapper.readTree(raw);
@@ -111,43 +260,76 @@ public class SpotifyApiController {
                     String image = null;
                     JsonNode images = track.path("album").path("images");
                     if (images.isArray() && images.size() > 0) {
-                        image = images.get(images.size()-1).path("url").asText();
+                        image = images
+                            .get(images.size() - 1)
+                            .path("url")
+                            .asText();
                     }
 
-                    items.add(Map.of(
-                            "track", Map.of(
-                                    "id", id,
-                                    "name", name,
-                                    "artists", artists,
-                                    "album", album,
-                                    "durationMs", durationMs,
-                                    "uri", uri,
-                                    "image", image,
-                                    "provider", "spotify"
+                    items.add(
+                        Map.of(
+                            "track",
+                            Map.of(
+                                "id",
+                                id,
+                                "name",
+                                name,
+                                "artists",
+                                artists,
+                                "album",
+                                album,
+                                "durationMs",
+                                durationMs,
+                                "uri",
+                                uri,
+                                "image",
+                                image,
+                                "provider",
+                                "spotify"
                             )
-                    ));
+                        )
+                    );
                 }
             }
             return ResponseEntity.ok(Map.of("items", items));
         } catch (Exception e) {
-            return ResponseEntity.internalServerError().body(Map.of("error", "parse_failed", "details", e.getMessage()));
+            return ResponseEntity.internalServerError().body(
+                Map.of("error", "parse_failed", "details", e.getMessage())
+            );
         }
     }
 
     @GetMapping("/search")
-    public ResponseEntity<?> search(@RequestHeader(name = "X-Session-Id", required = false) String sessionId,
-                                    @RequestParam(name = "query") String query,
-                                    @RequestParam(name = "limit", required = false, defaultValue = "10") int limit) {
+    public ResponseEntity<?> search(
+        @RequestHeader(
+            name = "X-Session-Id",
+            required = false
+        ) String sessionId,
+        @RequestParam(name = "query") String query,
+        @RequestParam(
+            name = "limit",
+            required = false,
+            defaultValue = "10"
+        ) int limit
+    ) {
         if (sessionId == null || sessionId.isBlank()) {
-            return ResponseEntity.status(401).body(Map.of("error", "missing_session"));
+            return ResponseEntity.status(401).body(
+                Map.of("error", "missing_session")
+            );
         }
         TokenInfo token = tokenStore.get(sessionId, Provider.SPOTIFY);
         if (token == null) {
-            return ResponseEntity.status(401).body(Map.of("error", "invalid_session"));
+            return ResponseEntity.status(401).body(
+                Map.of("error", "invalid_session")
+            );
         }
         if (limit > 50) limit = 50;
-    String raw = spotifyApiService.searchTracksRaw(token, sessionId, query, limit).block();
-        if (raw == null) return ResponseEntity.internalServerError().body(Map.of("error", "spotify_unreachable"));
+        String raw = spotifyApiService
+            .searchTracksRaw(token, sessionId, query, limit)
+            .block();
+        if (raw == null) return ResponseEntity.internalServerError().body(
+            Map.of("error", "spotify_unreachable")
+        );
         try {
             JsonNode root = objectMapper.readTree(raw);
             JsonNode tracks = root.path("tracks").path("items");
@@ -157,28 +339,44 @@ public class SpotifyApiController {
                     String id = t.path("id").asText();
                     String name = t.path("name").asText();
                     List<String> artists = new ArrayList<>();
-                    for (JsonNode a : t.path("artists")) artists.add(a.path("name").asText());
+                    for (JsonNode a : t.path("artists"))
+                        artists.add(a.path("name").asText());
                     String album = t.path("album").path("name").asText();
                     long durationMs = t.path("duration_ms").asLong();
                     String uri = t.path("uri").asText();
                     String image = null;
                     JsonNode images = t.path("album").path("images");
-                    if (images.isArray() && images.size() > 0) image = images.get(images.size()-1).path("url").asText();
-                    items.add(Map.of(
-                            "id", id,
-                            "name", name,
-                            "artists", artists,
-                            "album", album,
-                            "durationMs", durationMs,
-                            "uri", uri,
-                "image", image,
-                "provider", "spotify"
-                    ));
+                    if (images.isArray() && images.size() > 0) image = images
+                        .get(images.size() - 1)
+                        .path("url")
+                        .asText();
+                    items.add(
+                        Map.of(
+                            "id",
+                            id,
+                            "name",
+                            name,
+                            "artists",
+                            artists,
+                            "album",
+                            album,
+                            "durationMs",
+                            durationMs,
+                            "uri",
+                            uri,
+                            "image",
+                            image,
+                            "provider",
+                            "spotify"
+                        )
+                    );
                 }
             }
             return ResponseEntity.ok(Map.of("items", items));
         } catch (Exception e) {
-            return ResponseEntity.internalServerError().body(Map.of("error", "parse_failed", "details", e.getMessage()));
+            return ResponseEntity.internalServerError().body(
+                Map.of("error", "parse_failed", "details", e.getMessage())
+            );
         }
     }
 
@@ -187,36 +385,72 @@ public class SpotifyApiController {
      * Returns similar tracks that can be auto-queued for continuous playback
      */
     @GetMapping("/recommendations")
-    public ResponseEntity<?> recommendations(@RequestHeader(name = "X-Session-Id", required = false) String sessionId,
-                                             @RequestParam(name = "trackId", required = false) String trackId,
-                                             @RequestParam(name = "artistId", required = false) String artistId,
-                                             @RequestParam(name = "limit", required = false, defaultValue = "3") int limit) {
+    public ResponseEntity<?> recommendations(
+        @RequestHeader(
+            name = "X-Session-Id",
+            required = false
+        ) String sessionId,
+        @RequestParam(name = "trackId", required = false) String trackId,
+        @RequestParam(name = "artistId", required = false) String artistId,
+        @RequestParam(
+            name = "limit",
+            required = false,
+            defaultValue = "3"
+        ) int limit
+    ) {
         if (sessionId == null || sessionId.isBlank()) {
-            return ResponseEntity.status(401).body(Map.of("error", "missing_session", "message", "X-Session-Id header required"));
+            return ResponseEntity.status(401).body(
+                Map.of(
+                    "error",
+                    "missing_session",
+                    "message",
+                    "X-Session-Id header required"
+                )
+            );
         }
 
         TokenInfo token = tokenStore.get(sessionId, Provider.SPOTIFY);
         if (token == null) {
-            return ResponseEntity.status(401).body(Map.of("error", "invalid_session"));
+            return ResponseEntity.status(401).body(
+                Map.of("error", "invalid_session")
+            );
         }
 
-        if (token.getExpiresAt() != null && token.getExpiresAt().isBefore(Instant.now())) {
-            return ResponseEntity.status(401).body(Map.of("error", "token_expired"));
+        if (
+            token.getExpiresAt() != null &&
+            token.getExpiresAt().isBefore(Instant.now())
+        ) {
+            return ResponseEntity.status(401).body(
+                Map.of("error", "token_expired")
+            );
         }
 
         // Validate that at least one seed is provided
-        if ((trackId == null || trackId.isBlank()) && (artistId == null || artistId.isBlank())) {
-            return ResponseEntity.badRequest().body(Map.of("error", "missing_seeds",
-                "message", "At least one of trackId or artistId must be provided"));
+        if (
+            (trackId == null || trackId.isBlank()) &&
+            (artistId == null || artistId.isBlank())
+        ) {
+            return ResponseEntity.badRequest().body(
+                Map.of(
+                    "error",
+                    "missing_seeds",
+                    "message",
+                    "At least one of trackId or artistId must be provided"
+                )
+            );
         }
 
         // Limit to max 100 recommendations
         if (limit > 100) limit = 100;
         if (limit < 1) limit = 1;
 
-        String raw = spotifyApiService.getRecommendationsRaw(token, sessionId, trackId, artistId, limit).block();
+        String raw = spotifyApiService
+            .getRecommendationsRaw(token, sessionId, trackId, artistId, limit)
+            .block();
         if (raw == null) {
-            return ResponseEntity.internalServerError().body(Map.of("error", "spotify_unreachable"));
+            return ResponseEntity.internalServerError().body(
+                Map.of("error", "spotify_unreachable")
+            );
         }
 
         try {
@@ -240,24 +474,42 @@ public class SpotifyApiController {
                     String image = null;
                     JsonNode images = t.path("album").path("images");
                     if (images.isArray() && images.size() > 0) {
-                        image = images.get(images.size()-1).path("url").asText();
+                        image = images
+                            .get(images.size() - 1)
+                            .path("url")
+                            .asText();
                     }
-                    items.add(Map.of(
-                            "id", id,
-                            "name", name,
-                            "artists", artists,
-                            "artistIds", artistIds,
-                            "album", album,
-                            "durationMs", durationMs,
-                            "uri", uri,
-                            "image", image,
-                            "provider", "spotify"
-                    ));
+                    items.add(
+                        Map.of(
+                            "id",
+                            id,
+                            "name",
+                            name,
+                            "artists",
+                            artists,
+                            "artistIds",
+                            artistIds,
+                            "album",
+                            album,
+                            "durationMs",
+                            durationMs,
+                            "uri",
+                            uri,
+                            "image",
+                            image,
+                            "provider",
+                            "spotify"
+                        )
+                    );
                 }
             }
-            return ResponseEntity.ok(Map.of("items", items, "count", items.size()));
+            return ResponseEntity.ok(
+                Map.of("items", items, "count", items.size())
+            );
         } catch (Exception e) {
-            return ResponseEntity.internalServerError().body(Map.of("error", "parse_failed", "details", e.getMessage()));
+            return ResponseEntity.internalServerError().body(
+                Map.of("error", "parse_failed", "details", e.getMessage())
+            );
         }
     }
 }
