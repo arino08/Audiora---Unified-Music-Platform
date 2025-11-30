@@ -1,22 +1,7 @@
-import { enableProdMode, importProvidersFrom } from '@angular/core';
-import { bootstrapApplication } from '@angular/platform-browser';
-import { AppComponent } from './app/app.component';
-import { provideHttpClient } from '@angular/common/http';
-import { provideRouter } from '@angular/router';
-import { OAuthModule } from 'angular-oauth2-oidc';
-import { environment } from './environments/environment';
+import { bootstrapApplication } from "@angular/platform-browser";
+import { AppComponent } from "./app/app.component";
+import { appConfig } from "./app/app.config";
 
-bootstrapApplication(AppComponent, {
-  providers: [
-    provideHttpClient(),
-    provideRouter([]), // Add routing support for OAuth redirects
-    importProvidersFrom(
-      OAuthModule.forRoot({
-        resourceServer: {
-          allowedUrls: [environment.apiUrl], // Allow OAuth tokens for backend API calls
-          sendAccessToken: true
-        }
-      })
-    )
-  ]
-}).catch(err => console.error(err));
+bootstrapApplication(AppComponent, appConfig).catch((err) =>
+  console.error("Failed to bootstrap application:", err),
+);

@@ -1,67 +1,84 @@
 {
-    "$schema": "https://json.schemastore.org/angular-cli",
-    "version": 1,
-    "projects": {
-        "audiora": {
-            "projectType": "application",
-            "root": "",
-            "sourceRoot": "src",
-            "prefix": "app",
-            "architect": {
-                "build": {
-                    "builder": "@angular-devkit/build-angular:browser",
-                    "options": {
-                        "outputPath": "dist/audiora",
-                        "index": "index.html",
-                        "main": "src/main.ts",
-                        "tsConfig": "tsconfig.app.json",
-                        "polyfills": [
-                            "zone.js"
-                        ],
-                        "assets": [
-                            "src/favicon.ico",
-                            "src/assets"
-                        ],
-                        "styles": [
-                            "src/styles.css"
-                        ],
-                        "inlineStyleLanguage": "css"
-                    },
-                    "configurations": {
-                        "production": {
-                            "fileReplacements": [
-                                {
-                                    "replace": "src/environments/environment.ts",
-                                    "with": "src/environments/environment.prod.ts"
-                                }
-                            ],
-                            "budgets": [
-                                {
-                                    "type": "initial",
-                                    "maximumWarning": "500kb",
-                                    "maximumError": "1mb"
-                                }
-                            ],
-                            "outputHashing": "all"
-                        }
-                    }
-                },
-                "serve": {
-                    "builder": "@angular-devkit/build-angular:dev-server",
-                    "options": {
-                        "port": 4200,
-                        "browserTarget": "audiora:build"
-                    },
-                    "configurations": {
-                        "production": {
-                            "browserTarget": "audiora:build:production"
-                        }
-                    }
+  "$schema": "https://json.schemastore.org/angular-cli",
+  "version": 1,
+  "projects": {
+    "audiora": {
+      "projectType": "application",
+      "root": "",
+      "sourceRoot": "src",
+      "prefix": "app",
+      "architect": {
+        "build": {
+          "builder": "@angular-devkit/build-angular:browser",
+          "options": {
+            "outputPath": "dist/audiora",
+            "index": "index.html",
+            "main": "src/main.ts",
+            "tsConfig": "tsconfig.app.json",
+            "polyfills": ["zone.js"],
+            "assets": [
+              "src/favicon.ico",
+              "src/assets",
+              "src/manifest.json",
+              {
+                "glob": "sw.js",
+                "input": "src",
+                "output": "/"
+              }
+            ],
+            "styles": ["src/styles.css"],
+            "inlineStyleLanguage": "css"
+          },
+          "configurations": {
+            "production": {
+              "fileReplacements": [
+                {
+                  "replace": "src/environments/environment.ts",
+                  "with": "src/environments/environment.prod.ts"
                 }
+              ],
+              "budgets": [
+                {
+                  "type": "initial",
+                  "maximumWarning": "750kb",
+                  "maximumError": "1.5mb"
+                }
+              ],
+              "outputHashing": "all",
+              "optimization": true,
+              "sourceMap": false,
+              "namedChunks": false,
+              "extractLicenses": true
+            },
+            "development": {
+              "optimization": false,
+              "sourceMap": true,
+              "namedChunks": true,
+              "extractLicenses": false
             }
+          },
+          "defaultConfiguration": "production"
+        },
+        "serve": {
+          "builder": "@angular-devkit/build-angular:dev-server",
+          "options": {
+            "port": 4200,
+            "browserTarget": "audiora:build"
+          },
+          "configurations": {
+            "production": {
+              "browserTarget": "audiora:build:production"
+            },
+            "development": {
+              "browserTarget": "audiora:build:development"
+            }
+          },
+          "defaultConfiguration": "development"
         }
-    },
-    "cli": {
-        "analytics": false
+      }
     }
+  },
+  "cli": {
+    "analytics": false
+  }
 }

@@ -1,44 +1,588 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>Audiora</title>
-  <base href="/" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-</head>
-<body>
-  <!-- SVG Filters for Liquid Glass Effects -->
-  <svg style="position: absolute; width: 0; height: 0; pointer-events: none;" aria-hidden="true">
-    <defs>
-      <!-- Glass Distortion Filter -->
-      <filter id="glass-distortion" x="-50%" y="-50%" width="200%" height="200%">
-        <feTurbulence baseFrequency="0.012 0.012" numOctaves="4" type="fractalNoise" />
-        <feDisplacementMap in="SourceGraphic" scale="35" />
-      </filter>
+    <head>
+        <meta charset="utf-8" />
+        <title>Audiora - Unified Music Experience</title>
+        <base href="/" />
+        <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1, viewport-fit=cover"
+        />
+        <meta
+            name="description"
+            content="Audiora - Your unified music streaming experience. Connect Spotify, YouTube, and more in one beautiful interface."
+        />
+        <meta name="theme-color" content="#0a0a0f" />
+        <meta name="color-scheme" content="dark light" />
 
-      <!-- Enhanced Glass Filter with Noise -->
-      <filter id="enhanced-glass" x="-20%" y="-20%" width="140%" height="140%">
-        <feTurbulence baseFrequency="0.008 0.008" numOctaves="3" type="turbulence" />
-        <feColorMatrix type="saturate" values="0"/>
-        <feComponentTransfer>
-          <feFuncA type="discrete" tableValues="0.1 0.2"/>
-        </feComponentTransfer>
-        <feComposite in2="SourceGraphic" operator="over"/>
-        <feGaussianBlur stdDeviation="1"/>
-      </filter>
+        <!-- PWA Meta Tags -->
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta
+            name="apple-mobile-web-app-status-bar-style"
+            content="black-translucent"
+        />
+        <meta name="apple-mobile-web-app-title" content="Audiora" />
+        <meta name="application-name" content="Audiora" />
+        <meta name="msapplication-TileColor" content="#0a0a0f" />
+        <meta
+            name="msapplication-config"
+            content="assets/icons/browserconfig.xml"
+        />
 
-      <!-- Subtle Glow Filter -->
-      <filter id="glass-glow" x="-50%" y="-50%" width="200%" height="200%">
-        <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
-        <feMerge>
-          <feMergeNode in="coloredBlur"/>
-          <feMergeNode in="SourceGraphic"/>
-        </feMerge>
-      </filter>
-    </defs>
-  </svg>
+        <!-- PWA Manifest -->
+        <link rel="manifest" href="manifest.json" />
 
-  <app-root>Loading...</app-root>
-  <!-- Angular CLI injects scripts -->
-</body>
+        <!-- Favicon -->
+        <link rel="icon" type="image/svg+xml" href="assets/icons/favicon.svg" />
+        <link
+            rel="icon"
+            type="image/png"
+            sizes="32x32"
+            href="assets/icons/favicon-32x32.png"
+        />
+        <link
+            rel="icon"
+            type="image/png"
+            sizes="16x16"
+            href="assets/icons/favicon-16x16.png"
+        />
+
+        <!-- Apple Touch Icons -->
+        <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png" />
+        <link
+            rel="apple-touch-icon"
+            sizes="152x152"
+            href="assets/icons/apple-touch-icon-152x152.png"
+        />
+        <link
+            rel="apple-touch-icon"
+            sizes="180x180"
+            href="assets/icons/apple-touch-icon-180x180.png"
+        />
+        <link
+            rel="apple-touch-icon"
+            sizes="167x167"
+            href="assets/icons/apple-touch-icon-167x167.png"
+        />
+
+        <!-- Apple Splash Screens -->
+        <link
+            rel="apple-touch-startup-image"
+            href="assets/icons/apple-splash-2048-2732.png"
+            media="(device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)"
+        />
+        <link
+            rel="apple-touch-startup-image"
+            href="assets/icons/apple-splash-1668-2388.png"
+            media="(device-width: 834px) and (device-height: 1194px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)"
+        />
+        <link
+            rel="apple-touch-startup-image"
+            href="assets/icons/apple-splash-1536-2048.png"
+            media="(device-width: 768px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)"
+        />
+        <link
+            rel="apple-touch-startup-image"
+            href="assets/icons/apple-splash-1125-2436.png"
+            media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)"
+        />
+        <link
+            rel="apple-touch-startup-image"
+            href="assets/icons/apple-splash-1242-2688.png"
+            media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)"
+        />
+        <link
+            rel="apple-touch-startup-image"
+            href="assets/icons/apple-splash-750-1334.png"
+            media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)"
+        />
+        <link
+            rel="apple-touch-startup-image"
+            href="assets/icons/apple-splash-1242-2208.png"
+            media="(device-width: 414px) and (device-height: 736px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)"
+        />
+
+        <!-- Preconnect to external resources -->
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+        <!-- Fonts: Inter for UI, Space Grotesk for headings -->
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap"
+            rel="stylesheet"
+        />
+
+        <!-- Inline critical styles for loading state -->
+        <style>
+            :root {
+                --bg-primary: #050507;
+                --bg-secondary: #0a0a0f;
+                --text-primary: #ffffff;
+                --text-secondary: rgba(255, 255, 255, 0.6);
+                --accent-soft: rgba(168, 85, 247, 0.15);
+            }
+
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+
+            html,
+            body {
+                height: 100%;
+                font-family:
+                    "Inter",
+                    -apple-system,
+                    BlinkMacSystemFont,
+                    "Segoe UI",
+                    Roboto,
+                    sans-serif;
+                background: var(--bg-primary);
+                color: var(--text-primary);
+                overflow: hidden;
+            }
+
+            body {
+                padding: env(safe-area-inset-top) env(safe-area-inset-right)
+                    env(safe-area-inset-bottom) env(safe-area-inset-left);
+            }
+
+            /* Loading screen container */
+            .app-loading {
+                position: fixed;
+                inset: 0;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                background: var(--bg-primary);
+                z-index: 9999;
+                transition:
+                    opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+                    visibility 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+
+            .app-loading.hidden {
+                opacity: 0;
+                visibility: hidden;
+            }
+
+            /* Ambient background - soft, minimal orbs */
+            .ambient-bg {
+                position: absolute;
+                inset: 0;
+                overflow: hidden;
+                pointer-events: none;
+            }
+
+            .ambient-orb {
+                position: absolute;
+                border-radius: 50%;
+                filter: blur(100px);
+                opacity: 0;
+                animation:
+                    orb-fade-in 2s ease forwards,
+                    orb-float 20s ease-in-out infinite;
+            }
+
+            .ambient-orb-1 {
+                width: 50vw;
+                height: 50vw;
+                max-width: 500px;
+                max-height: 500px;
+                background: rgba(168, 85, 247, 0.12);
+                top: -10%;
+                left: -10%;
+                animation-delay: 0s, 0s;
+            }
+
+            .ambient-orb-2 {
+                width: 40vw;
+                height: 40vw;
+                max-width: 400px;
+                max-height: 400px;
+                background: rgba(20, 184, 166, 0.08);
+                bottom: -5%;
+                right: -5%;
+                animation-delay: 0.3s, 0s;
+            }
+
+            @keyframes orb-fade-in {
+                to {
+                    opacity: 1;
+                }
+            }
+
+            @keyframes orb-float {
+                0%,
+                100% {
+                    transform: translate(0, 0) scale(1);
+                }
+                50% {
+                    transform: translate(20px, -20px) scale(1.05);
+                }
+            }
+
+            /* Logo container */
+            .loading-logo-container {
+                position: relative;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 32px;
+                z-index: 1;
+            }
+
+            /* Logo mark */
+            .loading-logo {
+                position: relative;
+                width: 72px;
+                height: 72px;
+                opacity: 0;
+                animation: logo-appear 1s ease 0.2s forwards;
+            }
+
+            @keyframes logo-appear {
+                from {
+                    opacity: 0;
+                    transform: scale(0.9);
+                }
+                to {
+                    opacity: 1;
+                    transform: scale(1);
+                }
+            }
+
+            .loading-logo svg {
+                width: 100%;
+                height: 100%;
+            }
+
+            /* Breathing ring around logo */
+            .breathing-ring {
+                position: absolute;
+                inset: -8px;
+                border-radius: 50%;
+                border: 1px solid rgba(168, 85, 247, 0.3);
+                animation: breathe 3s ease-in-out infinite;
+            }
+
+            @keyframes breathe {
+                0%,
+                100% {
+                    transform: scale(1);
+                    opacity: 0.5;
+                }
+                50% {
+                    transform: scale(1.08);
+                    opacity: 0.8;
+                }
+            }
+
+            /* Brand name */
+            .loading-brand {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 8px;
+                opacity: 0;
+                animation: text-appear 0.8s ease 0.5s forwards;
+            }
+
+            @keyframes text-appear {
+                from {
+                    opacity: 0;
+                    transform: translateY(8px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+
+            .loading-text {
+                font-family: "Space Grotesk", sans-serif;
+                font-size: 32px;
+                font-weight: 600;
+                letter-spacing: -0.02em;
+                color: var(--text-primary);
+            }
+
+            .loading-subtitle {
+                font-size: 14px;
+                font-weight: 400;
+                color: var(--text-secondary);
+                letter-spacing: 0.02em;
+            }
+
+            /* Minimal loading indicator */
+            .loading-indicator {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                margin-top: 48px;
+                opacity: 0;
+                animation: text-appear 0.8s ease 0.8s forwards;
+            }
+
+            .loading-dot {
+                width: 6px;
+                height: 6px;
+                border-radius: 50%;
+                background: rgba(168, 85, 247, 0.6);
+                animation: dot-pulse 1.4s ease-in-out infinite;
+            }
+
+            .loading-dot:nth-child(2) {
+                animation-delay: 0.2s;
+            }
+
+            .loading-dot:nth-child(3) {
+                animation-delay: 0.4s;
+            }
+
+            @keyframes dot-pulse {
+                0%,
+                80%,
+                100% {
+                    transform: scale(0.8);
+                    opacity: 0.5;
+                }
+                40% {
+                    transform: scale(1);
+                    opacity: 1;
+                }
+            }
+
+            /* PWA hint */
+            .pwa-hint {
+                position: absolute;
+                bottom: 32px;
+                left: 50%;
+                transform: translateX(-50%);
+                font-size: 13px;
+                color: var(--text-secondary);
+                opacity: 0;
+                animation: text-appear 0.8s ease 1.2s forwards;
+            }
+
+            /* Reduced motion */
+            @media (prefers-reduced-motion: reduce) {
+                .ambient-orb,
+                .breathing-ring,
+                .loading-dot {
+                    animation: none;
+                }
+
+                .ambient-orb {
+                    opacity: 0.6;
+                }
+
+                .loading-logo,
+                .loading-brand,
+                .loading-indicator,
+                .pwa-hint {
+                    animation: none;
+                    opacity: 1;
+                }
+
+                .loading-dot {
+                    opacity: 0.8;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <!-- Loading screen (hidden when Angular bootstraps) -->
+        <div class="app-loading" id="app-loading">
+            <!-- Soft ambient background -->
+            <div class="ambient-bg">
+                <div class="ambient-orb ambient-orb-1"></div>
+                <div class="ambient-orb ambient-orb-2"></div>
+            </div>
+
+            <!-- Logo and brand -->
+            <div class="loading-logo-container">
+                <div class="loading-logo">
+                    <div class="breathing-ring"></div>
+                    <svg
+                        viewBox="0 0 100 100"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                    >
+                        <defs>
+                            <linearGradient
+                                id="logo-gradient"
+                                x1="0%"
+                                y1="0%"
+                                x2="100%"
+                                y2="100%"
+                            >
+                                <stop offset="0%" stop-color="#a855f7" />
+                                <stop offset="100%" stop-color="#14b8a6" />
+                            </linearGradient>
+                        </defs>
+                        <!-- Outer circle -->
+                        <circle
+                            cx="50"
+                            cy="50"
+                            r="46"
+                            stroke="rgba(255,255,255,0.08)"
+                            stroke-width="1.5"
+                            fill="none"
+                        />
+                        <!-- Inner glowing circle -->
+                        <circle
+                            cx="50"
+                            cy="50"
+                            r="38"
+                            stroke="url(#logo-gradient)"
+                            stroke-width="2"
+                            fill="none"
+                            opacity="0.8"
+                        />
+                        <!-- Play icon -->
+                        <path
+                            d="M42 33 L42 67 L70 50 Z"
+                            fill="url(#logo-gradient)"
+                            opacity="0.9"
+                        />
+                    </svg>
+                </div>
+
+                <div class="loading-brand">
+                    <span class="loading-text">Audiora</span>
+                    <span class="loading-subtitle">Your music, unified</span>
+                </div>
+
+                <!-- Minimal loading dots -->
+                <div class="loading-indicator">
+                    <div class="loading-dot"></div>
+                    <div class="loading-dot"></div>
+                    <div class="loading-dot"></div>
+                </div>
+            </div>
+
+            <div class="pwa-hint" id="pwa-hint" style="display: none">
+                Install for the best experience
+            </div>
+        </div>
+
+        <!-- Angular app root -->
+        <app-root></app-root>
+
+        <script>
+            // Service Worker Registration
+            if ("serviceWorker" in navigator) {
+                window.addEventListener("load", function () {
+                    navigator.serviceWorker
+                        .register("/sw.js")
+                        .then(function (registration) {
+                            console.log(
+                                "[App] ServiceWorker registered:",
+                                registration.scope,
+                            );
+
+                            registration.addEventListener(
+                                "updatefound",
+                                function () {
+                                    const newWorker = registration.installing;
+                                    console.log(
+                                        "[App] ServiceWorker update found",
+                                    );
+
+                                    newWorker.addEventListener(
+                                        "statechange",
+                                        function () {
+                                            if (
+                                                newWorker.state ===
+                                                    "installed" &&
+                                                navigator.serviceWorker
+                                                    .controller
+                                            ) {
+                                                console.log(
+                                                    "[App] New content available",
+                                                );
+                                                window.dispatchEvent(
+                                                    new CustomEvent(
+                                                        "sw-update-available",
+                                                    ),
+                                                );
+                                            }
+                                        },
+                                    );
+                                },
+                            );
+                        })
+                        .catch(function (error) {
+                            console.warn(
+                                "[App] ServiceWorker registration failed:",
+                                error,
+                            );
+                        });
+                });
+            }
+
+            // PWA Install Prompt
+            let deferredPrompt;
+            window.addEventListener("beforeinstallprompt", function (e) {
+                console.log("[App] Install prompt available");
+                e.preventDefault();
+                deferredPrompt = e;
+
+                const hint = document.getElementById("pwa-hint");
+                if (hint) {
+                    hint.style.display = "block";
+                }
+
+                window.dispatchEvent(
+                    new CustomEvent("pwa-installable", { detail: e }),
+                );
+            });
+
+            window.addEventListener("appinstalled", function () {
+                console.log("[App] PWA installed");
+                deferredPrompt = null;
+                window.dispatchEvent(new CustomEvent("pwa-installed"));
+            });
+
+            // Hide loading screen once Angular is ready
+            window.addEventListener("load", function () {
+                setTimeout(function () {
+                    var loader = document.getElementById("app-loading");
+                    if (loader) {
+                        loader.classList.add("hidden");
+                        setTimeout(function () {
+                            loader.remove();
+                        }, 600);
+                    }
+                }, 100);
+            });
+
+            // Expose install function for the app
+            window.installPWA = async function () {
+                if (!deferredPrompt) {
+                    console.log("[App] Install prompt not available");
+                    return false;
+                }
+
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                console.log("[App] Install prompt outcome:", outcome);
+                deferredPrompt = null;
+                return outcome === "accepted";
+            };
+
+            // Check if running as PWA
+            window.isPWA = function () {
+                return (
+                    window.matchMedia("(display-mode: standalone)").matches ||
+                    window.navigator.standalone === true ||
+                    document.referrer.includes("android-app://")
+                );
+            };
+        </script>
+    </body>
 </html>

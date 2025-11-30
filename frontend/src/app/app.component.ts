@@ -1,1836 +1,3021 @@
-import { Component, signal, OnInit, NgZone, effect, ViewChild } from '@angular/core';
-import { HttpClient, HttpClientModule } from '@angular/common/http';
-import { FormsModule } from '@angular/forms';
-import { CommonModule } from '@angular/common';
-import { Router } from '@angular/router';
-import { PlayerService, SpotifyPlayable, YouTubePlayable } from './player.service';
-import { SpotifyWebSdkService } from './spotify-web-sdk.service';
-import { YouTubePlayerService } from './youtube-player.service';
-import { LikedSongsService } from './liked-songs.service';
-import { AuthService } from './auth.service';
-import { SidebarComponent } from './layout/sidebar.component';
-import { NowPlayingPanelComponent } from './now-playing-panel.component';
-import { AlbumCarouselComponent } from './album-carousel.component';
-import { BottomPlayerComponent } from './bottom-player.component';
-import { SettingsPanelComponent } from './settings-panel.component';
-import { ProfilePanelComponent } from './profile-panel.component';
-import { AutoQueueService } from './auto-queue.service';
+import {
+  Component,
+  OnInit,
+  inject,
+  OnDestroy,
+  ViewChild,
+  HostListener,
+  ElementRef,
+} from "@angular/core";
+import { CommonModule } from "@angular/common";
+import { FormsModule } from "@angular/forms";
+import { NavigationEnd, Router, RouterOutlet } from "@angular/router";
+import { filter } from "rxjs/operators";
+import { Subject, takeUntil } from "rxjs";
+import {
+  PlayerService,
+  ThemeService,
+  DynamicThemeService,
+  ToastService,
+  AuthService,
+  YouTubePlayerService,
+  SpotifySdkService,
+  LikedTracksService,
+  KeyboardShortcutsService,
+  SleepTimerService,
+  MediaSessionService,
+  SleepTimerPreset,
+} from "./core/services";
+import { ToastContainerComponent } from "./shared/components/toast/toast-container.component";
+import { QueuePanelComponent } from "./shared/components/queue-panel/queue-panel.component";
+import { YouTubePlayerComponent } from "./shared/components/youtube-player/youtube-player.component";
+import { Track, RepeatMode } from "./core/models";
 
 @Component({
-  selector: 'app-root',
+  selector: "app-root",
   standalone: true,
-  imports: [CommonModule, HttpClientModule, FormsModule, SidebarComponent, NowPlayingPanelComponent, BottomPlayerComponent, AlbumCarouselComponent, SettingsPanelComponent, ProfilePanelComponent],
-  styles: [`
-    .inline-instructions-section { margin: var(--space-8) 0; }
-    .inline-instructions { position: relative; padding: var(--space-6); border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; background: linear-gradient(145deg, rgba(20,28,38,0.85), rgba(12,18,25,0.85)); backdrop-filter: blur(14px) saturate(140%); box-shadow: 0 8px 32px -8px rgba(0,0,0,0.6); animation: fadeIn .4s ease; }
-    .inline-header { display:flex; justify-content:space-between; align-items:center; margin-bottom: var(--space-4); }
-    .inline-header h2 { margin:0; font-size: 20px; background: var(--gradient-accent); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
-    .inline-close { background:none; border:none; color: var(--color-text-dim); font-size:24px; cursor:pointer; line-height:1; padding:4px 8px; border-radius:8px; }
-    .inline-close:hover { background: rgba(255,255,255,0.08); color: var(--color-text); }
-    .inline-instructions .intro { margin:0 0 var(--space-4); color: var(--color-text-dim); line-height:1.5; }
-    .inline-instructions .steps { margin:0 0 var(--space-5); padding-left: 1.2em; display:flex; flex-direction:column; gap: var(--space-3); }
-    .inline-instructions .steps li { line-height:1.4; }
-    .inline-instructions .actions { display:flex; gap: var(--space-3); justify-content:flex-end; margin-top: var(--space-4); }
-    .btn-tertiary { background: rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15); color: var(--color-text); padding: var(--space-3) var(--space-5); border-radius: 10px; cursor:pointer; font-weight:500; }
-    .btn-tertiary:hover { background: rgba(255,255,255,0.12); }
-    .btn-accent { background: linear-gradient(135deg,#1db954,#1ed760); color:#fff; border:none; padding: var(--space-3) var(--space-5); border-radius: 10px; cursor:pointer; font-weight:600; box-shadow: 0 4px 18px -4px rgba(29,185,84,0.5); }
-    .btn-accent:hover { filter: brightness(1.07); transform: translateY(-1px); }
-    .privacy { display:block; margin-top: var(--space-4); font-size:12px; color: var(--color-text-dim); }
-
-    .user-icon {
-      font-size: 18px;
-    }
-
-    .youtube-signin {
-      background: linear-gradient(135deg, #ff0000, #cc0000) !important;
-      color: white !important;
-      border: none !important;
-      padding: 12px 20px !important;
-      border-radius: 12px !important;
-      font-weight: 600 !important;
-      box-shadow: 0 4px 18px -4px rgba(255, 0, 0, 0.4) !important;
-      transition: all 0.2s ease !important;
-    }
-
-    .youtube-signin:hover {
-      filter: brightness(1.1) !important;
-      transform: translateY(-1px) !important;
-      box-shadow: 0 6px 24px -4px rgba(255, 0, 0, 0.5) !important;
-    }
-
-    .youtube-icon {
-      font-size: 18px;
-      margin-right: 8px;
-    }
-
-    .unverified-badge {
-      background: #ffa500;
-      color: white;
-      font-size: 12px;
-      font-weight: bold;
-      border-radius: 50%;
-      width: 16px;
-      height: 16px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      position: absolute;
-      top: -2px;
-      right: -2px;
-    }
-
-    /* Modern User Profile Hub */
-    .auth-compact.user {
-      position: relative;
-      display: flex;
-      align-items: center;
-    }
-
-    .user-hub {
-      position: relative;
-    }
-
-    .profile-trigger {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 10px 16px;
-      min-width: 220px;
-      border-radius: 18px;
-      background: linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.05));
-      border: 1px solid rgba(255,255,255,0.18);
-      backdrop-filter: blur(18px);
-      box-shadow: 0 12px 28px -16px rgba(0,0,0,0.6);
-      cursor: pointer;
-      transition: all 0.25s ease;
-      color: var(--color-text);
-      position: relative;
-      overflow: hidden;
-      isolation: isolate;
-    }
-
-    .profile-trigger::after {
-      content: '';
-      position: absolute;
-      inset: -40% -20%;
-      background: radial-gradient(circle at top, rgba(255,255,255,0.25), transparent 55%);
-      opacity: 0;
-      transition: opacity 0.3s ease;
-      z-index: -1;
-    }
-
-    .profile-trigger:hover,
-    .profile-trigger.active {
-      border-color: rgba(255,255,255,0.28);
-      transform: translateY(-1px);
-      box-shadow: 0 16px 36px -16px rgba(0,0,0,0.65);
-    }
-
-    .profile-trigger:hover::after,
-    .profile-trigger.active::after {
-      opacity: 1;
-    }
-
-    .trigger-avatar {
-      width: 38px;
-      height: 38px;
-      border-radius: 14px;
-      background: linear-gradient(135deg, #667eea, #764ba2);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 600;
-      font-size: 16px;
-      color: white;
-      position: relative;
-      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.25), 0 10px 18px -10px rgba(102,126,234,0.6);
-    }
-
-    .trigger-avatar .presence-dot {
-      position: absolute;
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      background: #16ff95;
-      border: 2px solid var(--color-bg);
-      bottom: -2px;
-      right: -2px;
-      box-shadow: 0 0 6px rgba(22,255,149,0.6);
-    }
-
-    .trigger-meta {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 2px;
-      flex: 1;
-    }
-
-    .trigger-name {
-      font-weight: 600;
-      font-size: 14px;
-    }
-
-    .trigger-subtle {
-      font-size: 11px;
-      color: var(--color-text-dim);
-      letter-spacing: 0.02em;
-      text-transform: uppercase;
-    }
-
-    .chevron {
-      width: 20px;
-      height: 20px;
-      border-radius: 50%;
-      border: 1px solid rgba(255,255,255,0.18);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: var(--color-text-dim);
-      transition: all 0.25s ease;
-      font-size: 10px;
-    }
-
-    .chevron::before {
-      content: '⌄';
-    }
-
-    .chevron.open {
-      transform: rotate(180deg);
-      color: var(--color-text);
-      border-color: rgba(255,255,255,0.3);
-    }
-
-    .profile-dropdown {
-      position: absolute;
-      top: calc(100% + 12px);
-      right: 0;
-      width: 320px;
-      border-radius: 20px;
-      border: 1px solid rgba(255,255,255,0.12);
-      background: linear-gradient(155deg, rgba(18,26,38,0.98), rgba(10,16,24,0.98));
-      box-shadow: 0 20px 45px rgba(0,0,0,0.45);
-      backdrop-filter: blur(28px);
-      overflow: hidden;
-      animation: slideDown 0.22s ease;
-      z-index: 1200;
-    }
-
-    .dropdown-header {
-      display: flex;
-      gap: 16px;
-      padding: 22px 24px 18px;
-      background: linear-gradient(135deg, rgba(102,126,234,0.2), rgba(118,75,162,0.08));
-    }
-
-    .header-avatar {
-      position: relative;
-      width: 58px;
-      height: 58px;
-      border-radius: 18px;
-      background: linear-gradient(135deg, #6a11cb, #2575fc);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 22px;
-      font-weight: 600;
-      color: white;
-      box-shadow: 0 12px 32px -18px rgba(37,117,252,0.8);
-      overflow: hidden;
-    }
-
-    .header-avatar .header-glow {
-      position: absolute;
-      inset: 0;
-      background: radial-gradient(circle at top, rgba(255,255,255,0.5), transparent 70%);
-      opacity: 0.4;
-      mix-blend-mode: screen;
-    }
-
-    .header-details {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      min-width: 0;
-    }
-
-    .header-name {
-      font-size: 18px;
-      font-weight: 600;
-      color: var(--color-text);
-    }
-
-    .header-email {
-      font-size: 13px;
-      color: var(--color-text-dim);
-      word-break: break-all;
-    }
-
-    .header-badges {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-top: 4px;
-    }
-
-    .badge {
-      font-size: 11px;
-      padding: 4px 10px;
-      border-radius: 999px;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-      background: rgba(255,255,255,0.08);
-      border: 1px solid rgba(255,255,255,0.12);
-      color: var(--color-text);
-    }
-
-    .badge-youtube {
-      background: rgba(255, 0, 0, 0.18);
-      border-color: rgba(255, 0, 0, 0.35);
-      color: #ff6b6b;
-    }
-
-    .badge-spotify {
-      background: rgba(29,185,84,0.15);
-      border-color: rgba(29,185,84,0.28);
-      color: #1db954;
-    }
-
-    .badge-warn {
-      background: rgba(255,165,0,0.15);
-      border-color: rgba(255,165,0,0.28);
-      color: #ffa500;
-    }
-
-    .dropdown-alert {
-      display: flex;
-      gap: 12px;
-      padding: 14px 20px;
-      background: rgba(255,165,0,0.14);
-      color: #ffd194;
-      border-top: 1px solid rgba(255,255,255,0.04);
-      border-bottom: 1px solid rgba(255,255,255,0.06);
-    }
-
-    .alert-icon {
-      font-size: 18px;
-      line-height: 1;
-    }
-
-    .alert-title {
-      font-weight: 600;
-      font-size: 13px;
-      margin-bottom: 4px;
-    }
-
-    .alert-text {
-      font-size: 12px;
-      color: rgba(255,255,255,0.78);
-    }
-
-    .dropdown-stats {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 12px;
-      padding: 18px 20px;
-    }
-
-    .stat-card {
-      padding: 12px;
-      border-radius: 14px;
-      background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(255,255,255,0.08);
-      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .stat-label {
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: var(--color-text-dim);
-    }
-
-    .stat-value {
-      font-size: 18px;
-      font-weight: 600;
-      color: var(--color-text);
-    }
-
-    .dropdown-actions {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      padding: 0 20px 18px;
-    }
-
-    .dropdown-button {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      width: 100%;
-      border: 1px solid transparent;
-      border-radius: 14px;
-      padding: 12px 16px;
-      background: rgba(255,255,255,0.03);
-      color: var(--color-text);
-      font: inherit;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      text-align: left;
-    }
-
-    .dropdown-button .button-icon {
-      font-size: 16px;
-      width: 24px;
-      text-align: center;
-    }
-
-    .dropdown-button .button-label {
-      font-weight: 600;
-      font-size: 14px;
-    }
-
-    .dropdown-button .button-desc {
-      font-size: 12px;
-      color: var(--color-text-dim);
-    }
-
-    .dropdown-button:hover {
-      background: rgba(255,255,255,0.08);
-      border-color: rgba(255,255,255,0.12);
-      transform: translateY(-1px);
-    }
-
-    .dropdown-button.sync:hover {
-      background: rgba(29,185,84,0.12);
-      border-color: rgba(29,185,84,0.25);
-      color: #1db954;
-    }
-
-    .dropdown-button.settings:hover {
-      background: rgba(59,130,246,0.12);
-      border-color: rgba(59,130,246,0.25);
-      color: #93c5fd;
-    }
-
-    .dropdown-footer {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 16px 20px 18px;
-      border-top: 1px solid rgba(255,255,255,0.06);
-      background: rgba(255,255,255,0.02);
-    }
-
-    .footer-status {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 12px;
-      color: var(--color-text-dim);
-    }
-
-    .footer-status .status-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #16ff95;
-      box-shadow: 0 0 6px rgba(22,255,149,0.6);
-    }
-
-    .footer-logout {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      border: none;
-      border-radius: 999px;
-      padding: 10px 16px;
-      font-size: 13px;
-      font-weight: 600;
-      background: linear-gradient(135deg, rgba(255,82,82,0.85), rgba(244,67,54,0.9));
-      color: white;
-      cursor: pointer;
-      box-shadow: 0 12px 24px -18px rgba(255,82,82,0.8);
-      transition: transform 0.2s ease, box-shadow 0.2s ease;
-    }
-
-    .footer-logout:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 12px 28px -16px rgba(255,82,82,0.9);
-    }
-
-    .footer-logout span:last-child {
-      font-size: 16px;
-    }
-
-    @keyframes slideDown {
-      from {
-        opacity: 0;
-        transform: translateY(-10px) scale(0.95);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-      }
-    }
-
-    /* Enhanced Navigation Tabs */
-    .nav-tabs.modern {
-      display: flex;
-      gap: 4px;
-      background: rgba(255,255,255,0.05);
-      padding: 4px;
-      border-radius: 12px;
-      backdrop-filter: blur(10px);
-      border: 1px solid rgba(255,255,255,0.1);
-    }
-
-    .nav-tab.modern {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 12px 20px;
-      background: none;
-      border: none;
-      color: var(--color-text-dim);
-      font-size: 14px;
-      font-weight: 500;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .nav-tab.modern:hover {
-      background: rgba(255,255,255,0.08);
-      color: var(--color-text);
-      transform: translateY(-1px);
-    }
-
-    .nav-tab.modern.active {
-      background: linear-gradient(135deg, #667eea, #764ba2);
-      color: white;
-      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
-    }
-
-    .nav-tab.modern.active::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: linear-gradient(135deg, rgba(255,255,255,0.2), transparent);
-      pointer-events: none;
-    }
-
-    .tab-icon {
-      font-size: 16px;
-      filter: grayscale(0.5);
-      transition: filter 0.3s ease;
-    }
-
-    .nav-tab.modern.active .tab-icon,
-    .nav-tab.modern:hover .tab-icon {
-      filter: grayscale(0);
-    }
-
-    .tab-label {
-      font-weight: 600;
-    }
-
-    .menu-toggle {
-      display: none;
-      width: 42px;
-      height: 42px;
-      border-radius: 12px;
-      border: 1px solid rgba(255,255,255,0.16);
-      background: rgba(255,255,255,0.05);
-      align-items: center;
-      justify-content: center;
-      gap: 5px;
-      flex-direction: column;
-      cursor: pointer;
-      transition: all 0.2s ease;
-    }
-
-    .menu-toggle span {
-      width: 18px;
-      height: 2px;
-      background: rgba(255,255,255,0.85);
-      border-radius: 999px;
-      display: block;
-      transition: transform 0.2s ease;
-    }
-
-    .app-shell.sidebar-open .menu-toggle span:nth-child(1) {
-      transform: translateY(6px) rotate(45deg);
-    }
-    .app-shell.sidebar-open .menu-toggle span:nth-child(2) {
-      opacity: 0;
-    }
-    .app-shell.sidebar-open .menu-toggle span:nth-child(3) {
-      transform: translateY(-6px) rotate(-45deg);
-    }
-
-    .mobile-sidebar-backdrop {
-      position: fixed;
-      inset: 0;
-      background: rgba(5,5,10,0.65);
-      backdrop-filter: blur(6px);
-      z-index: 80;
-    }
-
-    /* Enhanced Header */
-    .main-header.modern {
-      background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05));
-      backdrop-filter: blur(20px);
-      border-bottom: 1px solid rgba(255,255,255,0.1);
-      position: sticky;
-      top: 0;
-      z-index: 100;
-        box-shadow: 0 4px 32px -8px rgba(0,0,0,0.25);
-        padding: 16px 24px;
-        border-radius: 16px;
-    }
-
-    .brand-container {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .brand-icon {
-      font-size: 32px;
-      filter: drop-shadow(0 0 10px rgba(102, 126, 234, 0.5));
-      animation: float 3s ease-in-out infinite;
-    }
-
-    @keyframes float {
-      0%, 100% { transform: translateY(0px); }
-      50% { transform: translateY(-5px); }
-    }
-
-    .page-title.modern {
-      font-size: 28px;
-      font-weight: 700;
-      background: linear-gradient(135deg, #667eea, #764ba2, #f093fb, #f5576c);
-      background-size: 200% 200%;
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-      animation: gradientShift 4s ease infinite;
-      margin: 0;
-    }
-
-    @keyframes gradientShift {
-      0% { background-position: 0% 50%; }
-      50% { background-position: 100% 50%; }
-      100% { background-position: 0% 50%; }
-    }
-
-    .brand-tagline {
-      font-size: 12px;
-      color: var(--color-text-dim);
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      font-weight: 500;
-      opacity: 0.8;
-    }
-
-    @media (max-width: 980px) {
-      .menu-toggle {
-        display: inline-flex;
-      }
-      .brand-container {
-        flex: 1;
-        justify-content: space-between;
-      }
-      .page-title.modern {
-        font-size: 24px;
-      }
-      .app-sidebar {
-        position: fixed;
-        inset: 0 auto 0 0;
-        width: min(80vw, 320px);
-        max-width: 100%;
-        transform: translateX(-100%);
-        transition: transform 0.3s ease, box-shadow 0.3s ease;
-        box-shadow: 12px 0 32px -18px rgba(0,0,0,0.65);
-        z-index: 900;
-        height: 100%;
-      }
-      .app-sidebar.mobile-open {
-        transform: translateX(0);
-      }
-      .app-shell.sidebar-open .header-top {
-        position: relative;
-        z-index: 100;
-      }
-      .auth-compact.user .profile-trigger {
-        width: 100%;
-        justify-content: flex-start;
-      }
-    }
-
-    @media (max-width: 640px) {
-      .main-header.modern {
-        padding: 14px 18px;
-      }
-      .header-controls {
-        flex-direction: column;
-        align-items: stretch;
-      }
-      .auth-compact.user .profile-trigger {
-        min-width: 0;
-      }
-    }
-
-    /* Enhanced Loading States */
-    .auth-loading.modern {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 12px 20px;
-    }
-
-    .loading-container {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .loading-spinner.modern {
-      width: 24px;
-      height: 24px;
-      border: 2px solid rgba(255,255,255,0.1);
-      border-top: 2px solid #667eea;
-      border-radius: 50%;
-      animation: spin 1s linear infinite, pulse 2s ease-in-out infinite;
-    }
-
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.6; }
-    }
-
-    .loading-text {
-      font-size: 14px;
-      color: var(--color-text-dim);
-      font-weight: 500;
-    }
-
-    /* Global Enhancements */
-    * {
-      transition: all 0.2s ease;
-    }
-
-    button:not(.nav-tab):not(.user-chip):hover {
-      transform: translateY(-1px);
-    }
-
-    .liquid-glass, .liquid-glass-enhanced {
-      transition: all 0.3s ease;
-    }
-
-    .liquid-glass:hover, .liquid-glass-enhanced:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 25px rgba(0,0,0,0.15);
-    }
-
-    /* Smooth Entrance Animations */
-    @keyframes fadeInUp {
-      from {
-        opacity: 0;
-        transform: translateY(20px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    .main-header, .auth-compact, .nav-tabs {
-      animation: fadeInUp 0.6s ease;
-    }
-
-    .menu-warning {
-      color: #ffa500;
-      font-size: 13px;
-      padding: 8px 0;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-      margin-bottom: 8px;
-    }
-
-    @keyframes fadeIn { from { opacity:0; transform: translateY(8px);} to { opacity:1; transform: translateY(0);} }
-    @keyframes slideIn { from { opacity:0; transform: scale(0.95) translateY(-20px);} to { opacity:1; transform: scale(1) translateY(0);} }
-  `],
+  imports: [
+    CommonModule,
+    FormsModule,
+    RouterOutlet,
+    ToastContainerComponent,
+    QueuePanelComponent,
+    YouTubePlayerComponent,
+  ],
   template: `
-    <div class="app-shell" [class.sidebar-open]="mobileSidebarOpen()">
-      <aside class="app-sidebar" [class.mobile-open]="mobileSidebarOpen()">
-        <audiora-sidebar
-          [sessionId]="sessionId()"
-          [spotifyPlaylists]="spotifyPlaylists()"
-          [youtubePlaylists]="youtubePlaylists()"
-          [backendConnected]="backendConnected()"
-          (connectSpotify)="loginSpotify()"
-          (connectYouTube)="loginYouTube()"
-          (playSpotifyPlaylist)="playSpotifyPlaylist($event)"
-          (selectYouTubePlaylist)="selectYouTubePlaylist($event)"
-          (viewLikedSongs)="showLikedSongs()"
-          (clear)="clearSession()"
-        />
-      </aside>
-      <div class="mobile-sidebar-backdrop" *ngIf="mobileSidebarOpen()" (click)="closeMobileSidebar()"></div>
-  <main class="app-main">
-        <header class="main-header modern">
-          <div class="header-top">
-            <button type="button" class="menu-toggle" (click)="toggleMobileSidebar()" [attr.aria-expanded]="mobileSidebarOpen()" aria-label="Toggle navigation">
-              <span></span>
-              <span></span>
-              <span></span>
-            </button>
-            <div class="brand-container">
-              <div class="brand-icon">🎵</div>
-              <h1 class="page-title modern">Audiora</h1>
-              <div class="brand-tagline">Unified Music Platform</div>
-            </div>
-            <div class="header-controls">
-              <nav class="nav-tabs modern" *ngIf="sessionId()">
-                <button type="button" class="nav-tab modern" [class.active]="activeTab()==='for-you'" (click)="setTab('for-you')">
-                  <span class="tab-icon">🎵</span>
-                  <span class="tab-label">For You</span>
-                </button>
-                <button type="button" class="nav-tab modern" [class.active]="activeTab()==='library'" (click)="setTab('library')">
-                  <span class="tab-icon">📚</span>
-                  <span class="tab-label">Your Library</span>
-                </button>
-                <button type="button" class="nav-tab modern" [class.active]="activeTab()==='playlists'" (click)="setTab('playlists')">
-                  <span class="tab-icon">🎶</span>
-                  <span class="tab-label">Playlists</span>
-                </button>
-              </nav>
+    <!-- Aurora Background -->
+    <div class="aurora-background"></div>
+    <div class="aurora-dynamic"></div>
+    <!-- Dynamic color orbs -->
+    <div class="aurora-orb aurora-orb-primary"></div>
+    <div class="aurora-orb aurora-orb-secondary"></div>
+    <div class="aurora-orb aurora-orb-accent"></div>
+    <div class="noise-overlay"></div>
 
-              <!-- YouTube-only Authentication section -->
-              <div class="auth-compact" *ngIf="!auth.isLoading() && !auth.isAuthenticated()">
-                <button type="button" class="auth-btn youtube-signin" (click)="loginYouTube()">
-                  <span class="youtube-icon">▶</span>
-                  <span>Sign in with YouTube</span>
-                </button>
-              </div>
-              <div class="auth-compact user" *ngIf="!auth.isLoading() && auth.isAuthenticated()">
-                <div class="user-hub">
-                  <button type="button" class="profile-trigger" (click)="toggleUserMenu()" [class.active]="showUserMenu" [title]="auth.userEmail()">
-                    <div class="trigger-avatar">
-                      <span>{{ userInitial() }}</span>
-                      <span class="presence-dot" title="Online"></span>
-                    </div>
-                    <div class="trigger-meta">
-                      <span class="trigger-name">{{ shortUserName() }}</span>
-                      <span class="trigger-subtle">Connected • {{ spotifyPlaylists().length ? 'YouTube + Spotify' : 'YouTube' }}</span>
-                    </div>
-                    <span class="chevron" [class.open]="showUserMenu"></span>
-                  </button>
-                  <div *ngIf="showUserMenu" class="profile-dropdown" (mouseleave)="showUserMenu=false">
-                    <div class="dropdown-header">
-                      <div class="header-avatar">
-                        <span>{{ userInitial() }}</span>
-                        <div class="header-glow"></div>
-                      </div>
-                      <div class="header-details">
-                        <div class="header-name">{{ auth.userName() || shortUserName() }}</div>
-                        <div class="header-email">{{ auth.userEmail() || 'Connected with Google' }}</div>
-                        <div class="header-badges">
-                          <span class="badge badge-youtube">YouTube Connected</span>
-                          <span *ngIf="spotifyPlaylists().length" class="badge badge-spotify">Spotify Linked</span>
-                          <span *ngIf="!auth.isVerified()" class="badge badge-warn">Email Unverified</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div *ngIf="!auth.isVerified()" class="dropdown-alert">
-                      <span class="alert-icon">⚠️</span>
-                      <div>
-                        <div class="alert-title">Verify your email</div>
-                        <div class="alert-text">Complete verification to enable backups.</div>
-                      </div>
-                    </div>
-                    <div class="dropdown-stats">
-                      <div class="stat-card">
-                        <span class="stat-label">Playlists synced</span>
-                        <span class="stat-value">{{ spotifyPlaylists().length + youtubePlaylists().length }}</span>
-                      </div>
-                      <div class="stat-card">
-                        <span class="stat-label">Providers linked</span>
-                        <span class="stat-value">{{ 1 + (spotifyPlaylists().length ? 1 : 0) }}</span>
-                      </div>
-                    </div>
-                    <div class="dropdown-actions">
-                      <button type="button" class="dropdown-button sync" (click)="likedSongs.manualSync(); showUserMenu=false">
-                        <span class="button-icon">🔄</span>
-                        <div>
-                          <div class="button-label">Sync liked songs</div>
-                          <div class="button-desc">Grab your latest favorites</div>
-                        </div>
-                      </button>
-                      <button type="button" class="dropdown-button profile" (click)="openProfile()">
-                        <span class="button-icon">👤</span>
-                        <div>
-                          <div class="button-label">Edit Profile</div>
-                          <div class="button-desc">Manage your account</div>
-                        </div>
-                      </button>
-                      <button type="button" class="dropdown-button settings" (click)="openSettings()">
-                        <span class="button-icon">⚙️</span>
-                        <div>
-                          <div class="button-label">Settings</div>
-                          <div class="button-desc">Preferences & privacy</div>
-                        </div>
-                      </button>
-                    </div>
-                    <div class="dropdown-footer">
-                      <div class="footer-status">
-                        <span class="status-dot"></span>
-                        <span>Session active</span>
-                      </div>
-                      <button type="button" class="footer-logout" (click)="showUserMenu=false; auth.logout()">
-                        <span>Sign out</span>
-                        <span>→</span>
-                      </button>
-                    </div>
+    <!-- Toast Notifications -->
+    <app-toast-container></app-toast-container>
+
+    <!-- Skip Link for Accessibility -->
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+
+    <!-- Main App Shell -->
+    <div class="app-shell" [class.queue-open]="queueVisible">
+      <!-- Sidebar -->
+      <aside class="sidebar glass-surface" [class.collapsed]="sidebarCollapsed">
+        <!-- Logo -->
+        <div class="sidebar-header">
+          <div class="logo" (click)="toggleSidebar()">
+            <svg
+              viewBox="0 0 100 100"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              class="logo-icon"
+            >
+              <defs>
+                <linearGradient
+                  id="sidebar-logo-gradient"
+                  x1="0%"
+                  y1="0%"
+                  x2="100%"
+                  y2="100%"
+                >
+                  <stop offset="0%" style="stop-color:#a855f7" />
+                  <stop offset="50%" style="stop-color:#3b82f6" />
+                  <stop offset="100%" style="stop-color:#14b8a6" />
+                </linearGradient>
+              </defs>
+              <circle
+                cx="50"
+                cy="50"
+                r="45"
+                stroke="url(#sidebar-logo-gradient)"
+                stroke-width="2"
+                fill="none"
+                opacity="0.3"
+              />
+              <circle
+                cx="50"
+                cy="50"
+                r="35"
+                stroke="url(#sidebar-logo-gradient)"
+                stroke-width="2"
+                fill="none"
+                opacity="0.5"
+              />
+              <circle
+                cx="50"
+                cy="50"
+                r="25"
+                stroke="url(#sidebar-logo-gradient)"
+                stroke-width="2"
+                fill="none"
+                opacity="0.7"
+              />
+              <path
+                d="M42 35 L42 65 L68 50 Z"
+                fill="url(#sidebar-logo-gradient)"
+              />
+            </svg>
+            <span class="logo-text" *ngIf="!sidebarCollapsed">Audiora</span>
+          </div>
+        </div>
+
+        <!-- Navigation -->
+        <nav class="sidebar-nav">
+          <div class="nav-section">
+            <span class="nav-section-title" *ngIf="!sidebarCollapsed"
+              >Menu</span
+            >
+            <a
+              class="nav-item"
+              [class.active]="activeRoute === 'home'"
+              (click)="setActiveRoute('home')"
+            >
+              <svg
+                class="nav-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                <polyline points="9 22 9 12 15 12 15 22" />
+              </svg>
+              <span class="nav-label" *ngIf="!sidebarCollapsed">Home</span>
+            </a>
+            <a
+              class="nav-item"
+              [class.active]="activeRoute === 'search'"
+              (click)="setActiveRoute('search')"
+            >
+              <svg
+                class="nav-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              <span class="nav-label" *ngIf="!sidebarCollapsed">Search</span>
+            </a>
+            <a
+              class="nav-item"
+              [class.active]="activeRoute === 'library'"
+              (click)="setActiveRoute('library')"
+            >
+              <svg
+                class="nav-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+                <path
+                  d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"
+                />
+              </svg>
+              <span class="nav-label" *ngIf="!sidebarCollapsed">Library</span>
+            </a>
+          </div>
+
+          <div class="nav-section">
+            <span class="nav-section-title" *ngIf="!sidebarCollapsed"
+              >Playlists</span
+            >
+            <a
+              class="nav-item"
+              [class.active]="activeRoute === 'liked'"
+              (click)="setActiveRoute('liked')"
+            >
+              <svg
+                class="nav-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path
+                  d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"
+                />
+              </svg>
+              <span class="nav-label" *ngIf="!sidebarCollapsed"
+                >Liked Songs</span
+              >
+            </a>
+            <a class="nav-item" (click)="createPlaylist()">
+              <svg
+                class="nav-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="16" />
+                <line x1="8" y1="12" x2="16" y2="12" />
+              </svg>
+              <span class="nav-label" *ngIf="!sidebarCollapsed"
+                >Create Playlist</span
+              >
+            </a>
+          </div>
+        </nav>
+
+        <!-- Connected Services -->
+        <div class="sidebar-footer" *ngIf="!sidebarCollapsed">
+          <span class="nav-section-title">Connected</span>
+          <div class="connected-services">
+            <button
+              class="service-badge spotify"
+              [class.connected]="spotifyConnected"
+              (click)="
+                spotifyConnected ? navigateToSettings() : connectSpotify()
+              "
+              [title]="
+                spotifyConnected
+                  ? 'Manage Spotify connection'
+                  : 'Connect Spotify'
+              "
+            >
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path
+                  d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"
+                />
+              </svg>
+              <span>Spotify</span>
+            </button>
+            <button
+              class="service-badge youtube"
+              [class.connected]="youtubeConnected"
+              (click)="
+                youtubeConnected ? navigateToSettings() : connectYouTube()
+              "
+              [title]="
+                youtubeConnected
+                  ? 'Manage YouTube connection'
+                  : 'Connect YouTube'
+              "
+            >
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path
+                  d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"
+                />
+              </svg>
+              <span>YouTube</span>
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Main Content Area -->
+      <div class="main-wrapper">
+        <!-- Header -->
+        <header class="header glass-surface">
+          <div class="header-left">
+            <button
+              class="btn-icon nav-btn"
+              (click)="goBack()"
+              [disabled]="!canGoBack"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+            </button>
+            <button
+              class="btn-icon nav-btn"
+              (click)="goForward()"
+              [disabled]="!canGoForward"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
+            </button>
+          </div>
+
+          <div class="header-center">
+            <div class="search-bar glass">
+              <svg
+                class="search-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              <input
+                type="text"
+                placeholder="Search songs, artists, albums..."
+                [(ngModel)]="searchQuery"
+                (keyup.enter)="performSearch()"
+              />
+              <kbd class="search-shortcut">⌘K</kbd>
+            </div>
+          </div>
+
+          <div class="header-right">
+            <button class="btn-icon" (click)="toggleTheme()">
+              <svg
+                *ngIf="isDarkTheme"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <circle cx="12" cy="12" r="5" />
+                <line x1="12" y1="1" x2="12" y2="3" />
+                <line x1="12" y1="21" x2="12" y2="23" />
+                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                <line x1="1" y1="12" x2="3" y2="12" />
+                <line x1="21" y1="12" x2="23" y2="12" />
+                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+              </svg>
+              <svg
+                *ngIf="!isDarkTheme"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+              </svg>
+            </button>
+            <button class="btn-icon notifications-btn">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+              </svg>
+              <span class="notification-dot"></span>
+            </button>
+            <div class="user-menu-container">
+              <button class="user-menu glass" (click)="toggleUserMenu()">
+                <div class="user-avatar">
+                  <img
+                    *ngIf="userAvatar"
+                    [src]="userAvatar"
+                    alt="User avatar"
+                  />
+                  <svg
+                    *ngIf="!userAvatar"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                    <circle cx="12" cy="7" r="4" />
+                  </svg>
+                </div>
+                <span class="user-name">{{ userName || "Guest" }}</span>
+                <svg
+                  class="dropdown-icon"
+                  [class.rotated]="userMenuOpen"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </button>
+
+              <!-- User Menu Dropdown -->
+              <div
+                class="user-menu-dropdown glass-surface"
+                *ngIf="userMenuOpen"
+              >
+                <div class="dropdown-header">
+                  <div class="dropdown-avatar">
+                    <img
+                      *ngIf="userAvatar"
+                      [src]="userAvatar"
+                      alt="User avatar"
+                    />
+                    <svg
+                      *ngIf="!userAvatar"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
+                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                      <circle cx="12" cy="7" r="4" />
+                    </svg>
+                  </div>
+                  <div class="dropdown-user-info">
+                    <span class="dropdown-user-name">{{
+                      userName || "Guest"
+                    }}</span>
+                    <span class="dropdown-user-email"
+                      >user&#64;audiora.app</span
+                    >
                   </div>
                 </div>
-              </div>
-              <div class="auth-loading modern" *ngIf="auth.isLoading()">
-                <div class="loading-container">
-                  <div class="loading-spinner modern"></div>
-                  <span class="loading-text">Connecting...</span>
-                </div>
+                <div class="dropdown-divider"></div>
+                <button class="dropdown-item" (click)="navigateToProfile()">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                    <circle cx="12" cy="7" r="4" />
+                  </svg>
+                  <span>Profile</span>
+                </button>
+                <button class="dropdown-item" (click)="navigateToSettings()">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <circle cx="12" cy="12" r="3" />
+                    <path
+                      d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
+                    />
+                  </svg>
+                  <span>Settings</span>
+                </button>
+                <div class="dropdown-divider"></div>
+                <button class="dropdown-item logout" (click)="logout()">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                    <polyline points="16 17 21 12 16 7" />
+                    <line x1="21" y1="12" x2="9" y2="12" />
+                  </svg>
+                  <span>Log out</span>
+                </button>
               </div>
 
+              <!-- Backdrop to close menu on click outside -->
+              <div
+                class="user-menu-backdrop"
+                *ngIf="userMenuOpen"
+                (click)="closeUserMenu()"
+              ></div>
             </div>
           </div>
         </header>
 
-        <!-- Hero section with large artwork (when playing) -->
-        <section *ngIf="sessionId() && nowPlaying()" class="hero-section">
-          <div class="hero-content">
-            <div class="hero-artwork">
-              <img *ngIf="nowPlaying()?.image" [src]="nowPlaying()?.image" [alt]="nowPlaying()?.title" />
-              <div *ngIf="!nowPlaying()?.image" class="artwork-placeholder">♪</div>
-            </div>
-            <div class="hero-info">
-              <h2 class="hero-title">{{ nowPlaying()?.title || 'Deep Intence' }}</h2>
-              <div class="hero-controls">
-                <button class="hero-btn primary">Like</button>
-                <button class="hero-btn">Following</button>
-                <button class="hero-btn">⚡</button>
-              </div>
-            </div>
-          </div>
-        </section>
+        <!-- Main Content -->
+        <main id="main-content" class="main-content">
+          <router-outlet></router-outlet>
 
-        <!-- Inline Spotify Connection Instructions -->
-        <section *ngIf="showSpotifyHelp()" class="inline-instructions-section">
-          <div class="inline-instructions">
-            <div class="inline-header">
-              <h2>Connect Spotify</h2>
-              <button class="inline-close" (click)="cancelSpotifyHelp()" aria-label="Close">×</button>
+          <!-- Placeholder content when no route matched -->
+          <div class="welcome-content" *ngIf="!hasRouteContent">
+            <div class="welcome-hero">
+              <h1 class="text-gradient">Welcome to Audiora</h1>
+              <p>
+                Your unified music streaming experience. Connect your favorite
+                services and enjoy all your music in one beautiful place.
+              </p>
             </div>
-            <p class="intro">Link your Spotify account to import playlists and enable unified playback.</p>
-            <ol class="steps">
-              <li><strong>Sign in</strong> with Google first (top-right) if not already.</li>
-              <li>Click <strong>Continue with Spotify</strong> below to open Spotify authorization.</li>
-              <li><strong>Authorize</strong> read access so we can list your playlists.</li>
-              <li>Return automatically—your Spotify playlists will appear in the sidebar.</li>
-            </ol>
-            <div class="actions">
-              <button class="btn-tertiary" (click)="cancelSpotifyHelp()">Cancel</button>
-              <button class="btn-accent" (click)="beginSpotifyAuth()">Continue with Spotify ♪</button>
-            </div>
-            <small class="privacy">Read-only: we never modify or post to your Spotify account.</small>
-          </div>
-        </section>
 
-        <!-- Track list section for search results -->
-        <section *ngIf="sessionId() && !selectedPlaylist() && (spotifyResults().length || youtubeResults().length)" class="tracklist-section">
-          <div class="tracklist-header">
-            <div class="track-column-headers">
-              <div class="col-index">#</div>
-              <div class="col-title">Title</div>
-              <div class="col-album">Album</div>
-              <div class="col-like">♡</div>
-              <div class="col-duration">⏱</div>
-            </div>
-          </div>
-          <div class="tracklist-content">
-            <!-- Spotify tracks -->
-            <div *ngFor="let t of spotifyResults(); let i = index" class="track-row list-item smooth-transition gpu-accelerated" (click)="playSpotifyTrack(t)" (dblclick)="enqueueSpotifyTrack(t)" [style.animation-delay.s]="i * 0.05">
-              <div class="col-index">{{ i + 1 }}</div>
-              <div class="col-title">
-                <div class="track-title">{{ t.name }}</div>
-                <div class="track-artist">{{ t.artists?.join(', ') || 'Unknown Artist' }}</div>
-              </div>
-              <div class="col-album">{{ t.album || '-' }}</div>
-              <div class="col-like">
-                <button class="track-like-btn" [class.liked]="isTrackLiked(t, 'spotify')" (click)="$event.stopPropagation(); toggleTrackLike(t, 'spotify')" title="Like">
-                  {{ isTrackLiked(t, 'spotify') ? '♥' : '♡' }}
-                </button>
-              </div>
-              <div class="col-duration">{{ formatDuration(t.durationMs) }}</div>
-            </div>
-            <!-- YouTube tracks -->
-            <div *ngFor="let v of youtubeResults(); let i = index" class="track-row list-item smooth-transition gpu-accelerated" (click)="playYouTubeVideo(v)" (dblclick)="enqueueYouTubeVideo(v)" [style.animation-delay.s]="i * 0.05">
-              <div class="col-index">{{ spotifyResults().length + i + 1 }}</div>
-              <div class="col-title">
-                <div class="track-title">{{ v.title }}</div>
-                <div class="track-artist">{{ v.channel || 'YouTube' }}</div>
-              </div>
-              <div class="col-album">YouTube</div>
-              <div class="col-like">
-                <button class="track-like-btn" [class.liked]="isTrackLiked(v, 'youtube')" (click)="$event.stopPropagation(); toggleTrackLike(v, 'youtube')" title="Like">
-                  {{ isTrackLiked(v, 'youtube') ? '♥' : '♡' }}
-                </button>
-              </div>
-              <div class="col-duration">-</div>
-            </div>
-          </div>
-        </section>
-
-        <!-- Playlist tracks section -->
-        <section *ngIf="sessionId() && (selectedPlaylist() || viewingLikedSongs()) && playlistTracks().length" class="tracklist-section">
-          <div class="playlist-header" *ngIf="selectedPlaylist()">
-            <div class="playlist-info-header">
-              <div class="playlist-cover-large">
-                <img *ngIf="selectedPlaylist()?.image" [src]="selectedPlaylist()?.image" [alt]="selectedPlaylist()?.name" class="cover-image">
-                <div *ngIf="!selectedPlaylist()?.image" class="cover-placeholder" [class.spotify]="playlistProvider() === 'spotify'" [class.youtube]="playlistProvider() === 'youtube'">
-                  {{ playlistProvider() === 'spotify' ? '♪' : '▶' }}
+            <div class="quick-actions">
+              <div class="action-card glass-card" (click)="connectSpotify()">
+                <div class="action-icon spotify-bg">
+                  <svg viewBox="0 0 24 24" fill="currentColor">
+                    <path
+                      d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"
+                    />
+                  </svg>
                 </div>
+                <h3>Connect Spotify</h3>
+                <p>Access your Spotify playlists and favorites</p>
               </div>
-              <div class="playlist-details">
-                <h2 class="playlist-title">{{ selectedPlaylist()?.name }}</h2>
-                <p class="playlist-meta">{{ selectedPlaylist()?.tracks }} {{ playlistProvider() === 'spotify' ? 'songs' : 'videos' }}</p>
-                <div class="playlist-actions">
-                  <button class="play-all-btn" (click)="playPlaylistFromStart()">
-                    <span class="play-icon">▶</span>
-                    Play All
+
+              <div class="action-card glass-card" (click)="connectYouTube()">
+                <div class="action-icon youtube-bg">
+                  <svg viewBox="0 0 24 24" fill="currentColor">
+                    <path
+                      d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"
+                    />
+                  </svg>
+                </div>
+                <h3>Connect YouTube</h3>
+                <p>Stream YouTube Music and videos</p>
+              </div>
+
+              <div
+                class="action-card glass-card"
+                (click)="setActiveRoute('search')"
+              >
+                <div class="action-icon search-bg">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                  </svg>
+                </div>
+                <h3>Discover Music</h3>
+                <p>Search across all your connected services</p>
+              </div>
+            </div>
+
+            <div class="recent-section" *ngIf="recentlyPlayed.length > 0">
+              <h2>Recently Played</h2>
+              <div class="recent-grid">
+                <div
+                  class="recent-item glass-card"
+                  *ngFor="let item of recentlyPlayed"
+                >
+                  <img [src]="item.albumArt" [alt]="item.title" />
+                  <div class="recent-info">
+                    <span class="recent-title">{{ item.title }}</span>
+                    <span class="recent-artist">{{ item.artist }}</span>
+                  </div>
+                  <button class="play-btn" (click)="playTrack(item)">
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                      <polygon points="5 3 19 12 5 21 5 3" />
+                    </svg>
                   </button>
-                  <button class="back-btn" (click)="clearPlaylistSelection()">← Back</button>
                 </div>
               </div>
             </div>
           </div>
-          <!-- Liked songs header -->
-          <div class="playlist-header" *ngIf="viewingLikedSongs()">
-            <div class="playlist-info-header">
-              <div class="playlist-cover-large">
-                <div class="cover-placeholder liked">♥</div>
-              </div>
-              <div class="playlist-details">
-                <h2 class="playlist-title">Liked Songs</h2>
-                <p class="playlist-meta">{{ playlistTracks().length }} liked songs</p>
-                <div class="playlist-actions">
-                  <button class="play-all-btn" (click)="playPlaylistFromStart()">
-                    <span class="play-icon">▶</span>
-                    Play All
-                  </button>
-                  <button class="back-btn" (click)="clearPlaylistSelection()">← Back</button>
-                </div>
-              </div>
-            </div>
+        </main>
+      </div>
+
+      <!-- Player Bar -->
+      <footer class="player-bar glass-surface">
+        <div class="player-track">
+          <div class="track-art" *ngIf="currentTrack">
+            <img [src]="currentTrack.albumArt" [alt]="currentTrack.title" />
           </div>
-          <div class="tracklist-header">
-            <div class="track-column-headers">
-              <div class="col-index">#</div>
-              <div class="col-title">Title</div>
-              <div class="col-album">Album</div>
-              <div class="col-like">♡</div>
-              <div class="col-duration">⏱</div>
-            </div>
+          <div class="track-art placeholder" *ngIf="!currentTrack">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+            >
+              <rect x="2" y="2" width="20" height="20" rx="4" />
+              <circle cx="12" cy="12" r="4" />
+              <circle cx="12" cy="12" r="1" />
+            </svg>
           </div>
-          <div class="tracklist-content">
-            <div *ngFor="let track of playlistTracks(); let i = index" class="track-row list-item smooth-transition gpu-accelerated"
-                 (click)="playPlaylistTrack(track, i)"
-                 (dblclick)="enqueuePlaylistTrack(track)"
-                 [style.animation-delay.s]="i * 0.03">
-              <div class="col-index">{{ i + 1 }}</div>
-              <div class="col-title">
-                <div class="track-title">{{ getTrackTitle(track) }}</div>
-                <div class="track-artist">{{ getTrackArtist(track) }}</div>
-              </div>
-              <div class="col-album">{{ getTrackAlbum(track) }}</div>
-              <div class="col-like">
-                <button class="track-like-btn" [class.liked]="isPlaylistTrackLiked(track)" (click)="$event.stopPropagation(); togglePlaylistTrackLike(track)" title="Like">
-                  {{ isPlaylistTrackLiked(track) ? '♥' : '♡' }}
+          <div class="track-info" *ngIf="currentTrack">
+            <span class="track-title truncate">{{ currentTrack.title }}</span>
+            <span class="track-artist truncate">{{ currentTrack.artist }}</span>
+          </div>
+          <div class="track-info" *ngIf="!currentTrack">
+            <span class="track-title text-muted">No track playing</span>
+            <span class="track-artist text-muted">Select a song to play</span>
+          </div>
+          <button
+            class="btn-icon like-btn"
+            *ngIf="currentTrack"
+            (click)="toggleLike()"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              [attr.fill]="isLiked ? 'currentColor' : 'none'"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path
+                d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"
+              />
+            </svg>
+          </button>
+          <!-- Provider indicator - shows when playing from Spotify or YouTube -->
+          <button
+            class="btn-icon provider-btn spotify"
+            *ngIf="currentTrack?.provider === 'spotify'"
+            (click)="openInSpotify()"
+            title="Playing from Spotify - Click to open in Spotify"
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"
+              />
+            </svg>
+          </button>
+          <button
+            class="btn-icon provider-btn youtube"
+            *ngIf="currentTrack?.provider === 'youtube'"
+            (click)="openInYouTube()"
+            title="Playing from YouTube - Click to open in YouTube"
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"
+              />
+            </svg>
+          </button>
+        </div>
+
+        <div class="player-controls">
+          <div class="control-buttons">
+            <button
+              class="btn-icon"
+              (click)="toggleShuffle()"
+              [class.active]="isShuffled"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <polyline points="16 3 21 3 21 8" />
+                <line x1="4" y1="20" x2="21" y2="3" />
+                <polyline points="21 16 21 21 16 21" />
+                <line x1="15" y1="15" x2="21" y2="21" />
+                <line x1="4" y1="4" x2="9" y2="9" />
+              </svg>
+            </button>
+            <button class="btn-icon" (click)="previousTrack()">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <polygon points="19 20 9 12 19 4 19 20" />
+                <line x1="5" y1="19" x2="5" y2="5" />
+              </svg>
+            </button>
+            <button class="btn-icon play-pause-btn" (click)="togglePlayPause()">
+              <svg *ngIf="!isPlaying" viewBox="0 0 24 24" fill="currentColor">
+                <polygon points="5 3 19 12 5 21 5 3" />
+              </svg>
+              <svg *ngIf="isPlaying" viewBox="0 0 24 24" fill="currentColor">
+                <rect x="6" y="4" width="4" height="16" />
+                <rect x="14" y="4" width="4" height="16" />
+              </svg>
+            </button>
+            <button class="btn-icon" (click)="nextTrack()">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <polygon points="5 4 15 12 5 20 5 4" />
+                <line x1="19" y1="5" x2="19" y2="19" />
+              </svg>
+            </button>
+            <button
+              class="btn-icon"
+              (click)="toggleRepeat()"
+              [class.active]="repeatMode !== 'off'"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <polyline points="17 1 21 5 17 9" />
+                <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+                <polyline points="7 23 3 19 7 15" />
+                <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+              </svg>
+              <span class="repeat-indicator" *ngIf="repeatMode === 'track'"
+                >1</span
+              >
+            </button>
+          </div>
+
+          <div class="progress-bar">
+            <span class="time-current">{{ formatTime(currentTime) }}</span>
+            <div class="progress-track" (click)="seekTo($event)">
+              <div
+                class="progress-fill"
+                [style.width.%]="progressPercent"
+              ></div>
+              <div
+                class="progress-handle"
+                [style.left.%]="progressPercent"
+              ></div>
+            </div>
+            <span class="time-total">{{ formatTime(duration) }}</span>
+          </div>
+        </div>
+
+        <div class="player-extra">
+          <!-- Sleep Timer -->
+          <div class="sleep-timer-wrapper" style="position: relative;">
+            <button
+              class="btn-icon"
+              [class.active]="sleepTimerActive"
+              (click)="toggleSleepTimerDropdown()"
+              title="Sleep Timer"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <polyline points="12 6 12 12 16 14" />
+              </svg>
+            </button>
+            <!-- Sleep timer badge showing remaining time -->
+            <span *ngIf="sleepTimerActive" class="sleep-timer-badge">
+              {{ sleepTimerRemaining }}
+            </span>
+            <!-- Dropdown -->
+            <div class="sleep-timer-dropdown" *ngIf="sleepTimerDropdownOpen">
+              <div *ngIf="sleepTimerActive" class="sleep-timer-active-display">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  style="width: 20px; height: 20px;"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="12 6 12 12 16 14" />
+                </svg>
+                <span class="sleep-timer-time">{{ sleepTimerRemaining }}</span>
+                <button class="sleep-timer-cancel" (click)="cancelSleepTimer()">
+                  Cancel
                 </button>
               </div>
-              <div class="col-duration">{{ getTrackDuration(track) }}</div>
+              <button
+                *ngFor="let preset of sleepTimerPresets"
+                class="sleep-timer-option"
+                (click)="setSleepTimer(preset.value)"
+              >
+                {{ preset.label }}
+              </button>
             </div>
           </div>
-        </section>
-
-        <!-- Album carousel for For You tab -->
-        <audiora-album-carousel *ngIf="sessionId() && activeTab()==='for-you'" [spotify]="spotifyResults()" [youtube]="youtubeResults()"></audiora-album-carousel>
-
-        <!-- Library tab content -->
-        <section *ngIf="sessionId() && activeTab()==='library'" class="panel liquid-glass-enhanced">
-          <h2 class="panel-title">Your Library</h2>
-          <div class="library-content">
-            <div class="library-section" *ngIf="likedSongs.likedTracks().length">
-              <h3>Liked Songs</h3>
-              <div class="liked-songs-preview" (click)="showLikedSongs()">
-                <div class="liked-cover">♥</div>
-                <div class="liked-info">
-                  <div class="liked-title">Liked Songs</div>
-                  <div class="liked-count">{{ likedSongs.likedTracks().length }} songs</div>
-                </div>
-              </div>
-            </div>
-            <div class="library-section" *ngIf="!likedSongs.likedTracks().length">
-              <div class="empty-state">
-                <div class="empty-icon">📚</div>
-                <p>Start building your library by liking songs!</p>
-                <p class="muted">Search for music and click the heart icon to add tracks to your library.</p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <!-- Playlists tab content -->
-        <section *ngIf="sessionId() && activeTab()==='playlists'" class="panel liquid-glass-enhanced">
-          <h2 class="panel-title">Your Playlists</h2>
-          <div class="playlists-content">
-            <div class="playlists-grid" *ngIf="spotifyPlaylists().length || youtubePlaylists().length">
-              <div *ngFor="let playlist of spotifyPlaylists()"
-                   class="playlist-card spotify"
-                   (click)="playSpotifyPlaylist(playlist)">
-                <div class="playlist-cover">
-                  <img *ngIf="playlist.image" [src]="playlist.image" [alt]="playlist.name">
-                  <div *ngIf="!playlist.image" class="cover-placeholder">♪</div>
-                </div>
-                <div class="playlist-info">
-                  <div class="playlist-name">{{ playlist.name }}</div>
-                  <div class="playlist-meta">{{ playlist.tracks }} songs • Spotify</div>
-                </div>
-              </div>
-              <div *ngFor="let playlist of youtubePlaylists()"
-                   class="playlist-card youtube"
-                   (click)="selectYouTubePlaylist(playlist)">
-                <div class="playlist-cover">
-                  <img *ngIf="playlist.image" [src]="playlist.image" [alt]="playlist.name">
-                  <div *ngIf="!playlist.image" class="cover-placeholder">▶</div>
-                </div>
-                <div class="playlist-info">
-                  <div class="playlist-name">{{ playlist.name }}</div>
-                  <div class="playlist-meta">{{ playlist.tracks }} videos • YouTube</div>
-                </div>
-              </div>
-            </div>
-            <div class="empty-state" *ngIf="!spotifyPlaylists().length && !youtubePlaylists().length">
-              <div class="empty-icon">🎵</div>
-              <p>No playlists connected yet</p>
-              <p class="muted">Connect your Spotify or YouTube account to view your playlists.</p>
-            </div>
-          </div>
-        </section>
-
-        <!-- Search section (when no tracks loaded and no playlist or liked songs selected) -->
-        <section *ngIf="sessionId() && !selectedPlaylist() && !viewingLikedSongs() && !spotifyResults().length && !youtubeResults().length" class="search-section panel liquid-glass-enhanced">
-          <h2 class="panel-title">Search Music</h2>
-          <form (submit)="doSearch($event)" class="search-form">
-            <input class="search-input" type="text" placeholder="Search for tracks, artists, albums..." [(ngModel)]="searchQuery" name="q" required />
-            <select class="search-select" [(ngModel)]="searchProvider" name="provider">
-              <option value="both">Both Providers</option>
-              <option value="spotify">Spotify</option>
-              <option value="youtube">YouTube</option>
-            </select>
-            <button class="search-btn" type="submit" [disabled]="searching">{{ searching ? 'Searching…' : 'Search' }}</button>
-          </form>
-        </section>
-        <ng-template #noSession>
-          <div class="hero panel liquid-glass-enhanced">
-            <h2 class="panel-title">Welcome to Audiora</h2>
-            <p class="muted" style="max-width:520px;line-height:1.4">Connect your Spotify and YouTube accounts to search, queue, and play tracks seamlessly. Start by clicking a provider on the left sidebar. Your session persists locally so you can pick up where you left off.</p>
-            <div class="hero-steps">
-              <div class="step">1. Connect a provider</div>
-              <div class="step">2. Search for music</div>
-              <div class="step">3. Click to play / Double-click to enqueue</div>
+          <button
+            class="btn-icon"
+            [class.active]="queueVisible"
+            (click)="toggleQueue()"
+            title="Queue (Q)"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <line x1="8" y1="6" x2="21" y2="6" />
+              <line x1="8" y1="12" x2="21" y2="12" />
+              <line x1="8" y1="18" x2="21" y2="18" />
+              <line x1="3" y1="6" x2="3.01" y2="6" />
+              <line x1="3" y1="12" x2="3.01" y2="12" />
+              <line x1="3" y1="18" x2="3.01" y2="18" />
+            </svg>
+          </button>
+          <button class="btn-icon" (click)="toggleDevices()">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+              <line x1="8" y1="21" x2="16" y2="21" />
+              <line x1="12" y1="17" x2="12" y2="21" />
+            </svg>
+          </button>
+          <div class="volume-control">
+            <button class="btn-icon" (click)="toggleMute()">
+              <svg
+                *ngIf="volume > 0.5"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+                <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+              </svg>
+              <svg
+                *ngIf="volume > 0 && volume <= 0.5"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+              </svg>
+              <svg
+                *ngIf="volume === 0"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                <line x1="23" y1="9" x2="17" y2="15" />
+                <line x1="17" y1="9" x2="23" y2="15" />
+              </svg>
+            </button>
+            <div class="volume-slider">
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                [value]="volume"
+                (input)="setVolume($event)"
+              />
+              <div class="volume-fill" [style.width.%]="volume * 100"></div>
             </div>
           </div>
-        </ng-template>
+          <button class="btn-icon" (click)="toggleFullscreen()">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <polyline points="15 3 21 3 21 9" />
+              <polyline points="9 21 3 21 3 15" />
+              <line x1="21" y1="3" x2="14" y2="10" />
+              <line x1="3" y1="21" x2="10" y2="14" />
+            </svg>
+          </button>
+        </div>
+      </footer>
 
-        <div *ngIf="authError()" class="alert error">Auth Error: {{ authError() }}</div>
+      <!-- Queue Panel -->
+      <app-queue-panel #queuePanel></app-queue-panel>
 
-        <section *ngIf="youtubeItems().length" class="panel liquid-glass-enhanced">
-          <h3 class="panel-title">YouTube Items ({{ selectedYouTubePlaylistId() }})</h3>
-          <ol class="yt-items">
-            <li *ngFor="let v of youtubeItems()">{{ v.position }}. {{ v.title }} <code>{{ v.videoId }}</code></li>
-          </ol>
-        </section>
-
-        <!-- Legacy Spotify playback control panel removed; bottom player & now-playing panel handle controls -->
-
-        <audiora-now-playing-panel />
-      </main>
-      <audiora-bottom-player *ngIf="nowPlaying()" />
-
-      <!-- Settings Panel -->
-      <app-settings-panel />
-
-      <!-- Profile Panel -->
-      <app-profile-panel />
+      <!-- YouTube Embedded Player -->
+      <app-youtube-player #youtubePlayer></app-youtube-player>
     </div>
-  `
-})
-export class AppComponent implements OnInit {
-  // Old manual flow signals kept (not used now) in case of fallback
-  spotifyAuthUrl = signal<string | null>(null);
-  youtubeAuthUrl = signal<string | null>(null);
-  sessionId = signal<string | null>(null);
-  spotifyPlaylists = signal<any[]>([]);
-  youtubePlaylists = signal<any[]>([]);
-  youtubeItems = signal<any[]>([]);
-  selectedYouTubePlaylistId = signal<string | null>(null);
-  // Inline help panel state
-  showSpotifyHelp = signal(false);
 
-  // Playlist navigation state
-  selectedPlaylist = signal<any | null>(null);
-  playlistTracks = signal<any[]>([]);
-  playlistProvider = signal<'spotify' | 'youtube' | null>(null);
-  viewingLikedSongs = signal<boolean>(false);
+    <!-- Keyboard Shortcuts Modal -->
+    <div
+      class="shortcuts-modal-overlay"
+      *ngIf="shortcutsModalOpen"
+      (click)="closeShortcutsModal()"
+    >
+      <div class="shortcuts-modal" (click)="$event.stopPropagation()">
+        <div class="shortcuts-modal-header">
+          <h2>
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <rect x="2" y="4" width="20" height="16" rx="2" />
+              <path
+                d="M6 8h.001M10 8h.001M14 8h.001M18 8h.001M8 12h.001M12 12h.001M16 12h.001M6 16h8"
+              />
+            </svg>
+            Keyboard Shortcuts
+          </h2>
+          <button class="shortcuts-modal-close" (click)="closeShortcutsModal()">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+        <div class="shortcuts-modal-body">
+          <div
+            class="shortcuts-category"
+            *ngFor="
+              let category of ['playback', 'volume', 'navigation', 'other']
+            "
+          >
+            <h3 class="shortcuts-category-title">{{ category }}</h3>
+            <div
+              class="shortcut-item"
+              *ngFor="let shortcut of shortcutsByCategory[category]"
+            >
+              <span class="shortcut-description">{{
+                shortcut.description
+              }}</span>
+              <span class="shortcut-keys">
+                <kbd
+                  class="shortcut-key"
+                  [class.wide]="
+                    shortcut.key === ' ' || shortcut.key === 'Escape'
+                  "
+                >
+                  {{ formatShortcut(shortcut) }}
+                </kbd>
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
 
-  playerState = signal<any | null>(null);
-  authError = signal<string | null>(null);
-  backendConnected = signal<boolean>(true); // Track backend connection status
-
-  // Search state
-  spotifyResults = signal<any[]>([]);
-  youtubeResults = signal<any[]>([]);
-  selectedYouTubeVideoId = signal<string | null>(null);
-  searchQuery = '';
-  searchProvider: 'both' | 'spotify' | 'youtube' = 'both';
-  searching = false;
-  activeTab = signal<'for-you'|'library'|'playlists'>('for-you');
-
-  // auth compact UI state
-  showUserMenu = false;
-  mobileSidebarOpen = signal(false);
-
-  shortUserName() {
-    const name = this.auth.userName();
-    if (!name) return 'User';
-    return name.split(' ')[0];
-  }
-
-  userInitial() {
-    const raw = (this.auth.userName() || this.auth.userEmail() || '').trim();
-    if (!raw) return '?';
-    const letter = raw.charAt(0);
-    return letter ? letter.toUpperCase() : '?';
-  }
-
-  @ViewChild(SettingsPanelComponent) settingsPanel!: SettingsPanelComponent;
-  @ViewChild(ProfilePanelComponent) profilePanel!: ProfilePanelComponent;
-
-  toggleUserMenu() {
-    this.showUserMenu = !this.showUserMenu;
-  }
-
-  openSettings() {
-    this.showUserMenu = false;
-    if (this.settingsPanel) {
-      this.settingsPanel.open();
-    }
-  }
-
-  openProfile() {
-    this.showUserMenu = false;
-    if (this.profilePanel) {
-      this.profilePanel.open();
-    }
-  }
-
-  // nowPlaying & barPlaying provided via getters instead of stored fields to avoid init order issues
-  get nowPlaying() { return this.player.current; }
-  get barPlaying() { return this.player.isPlaying; }
-  // Remove progress features for now to stabilize
-  positionMs = 0;
-  durationMs = 0;
-  private progressTimer?: any;
-
-  private backendBase = `http://${window.location.hostname}:8080`;
-
-  constructor(
-    private http: HttpClient,
-    public player: PlayerService,
-    private spotifySdk: SpotifyWebSdkService,
-    private yt: YouTubePlayerService,
-    public likedSongs: LikedSongsService,
-    public auth: AuthService,
-    private ngZone: NgZone,
-    private router: Router,
-    private autoQueue: AutoQueueService
-  ) {
-    this.initialSessionCapture();
-    // Provide callbacks to player service
-    this.player.setCallbacks({
-      onSpotifyPlay: async (track: SpotifyPlayable) => {
-        if (!this.sessionId()) return false;
-        try {
-          const deviceId = this.spotifySdk.deviceId();
-          const url = deviceId ? `${this.backendBase}/api/spotify/player/play/track?deviceId=${encodeURIComponent(deviceId)}` : `${this.backendBase}/api/spotify/player/play/track`;
-          await this.http.post(url, { uri: track.uri }, { headers: this.authHeaders() }).toPromise();
-          this.refreshState();
-          return true;
-        } catch (e) {
-          console.warn('Spotify play failed', e);
-          return false;
-        }
-      },
-      onSpotifyPause: async () => {
-        if (!this.sessionId()) return false;
-        try { await this.http.post(`${this.backendBase}/api/spotify/player/pause`, {}, { headers: this.authHeaders() }).toPromise(); return true; } catch { return false; }
-      },
-      onYouTubePlay: async (video: YouTubePlayable) => {
-        this.selectedYouTubeVideoId.set(video.videoId);
-        await this.yt.playVideo(video.videoId);
-        return true;
-      },
-      onYouTubeStop: async () => {
-        this.yt.pause();
-        this.selectedYouTubeVideoId.set(null);
-        return true;
+    <!-- PWA Install Banner -->
+    <div class="pwa-install-banner" *ngIf="showPwaInstallBanner">
+      <div class="pwa-install-icon">
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+          <polyline points="7 10 12 15 17 10" />
+          <line x1="12" y1="15" x2="12" y2="3" />
+        </svg>
+      </div>
+      <div class="pwa-install-content">
+        <h4>Install Audiora</h4>
+        <p>Add to your home screen for a better experience</p>
+      </div>
+      <div class="pwa-install-actions">
+        <button class="pwa-install-btn" (click)="installPwa()">Install</button>
+        <button class="pwa-dismiss-btn" (click)="dismissPwaBanner()">
+          Not now
+        </button>
+      </div>
+    </div>
+  `,
+  styles: [
+    `
+      :host {
+        display: block;
+        height: 100vh;
+        overflow: hidden;
       }
-    });
+
+      /* ============================================
+         APP SHELL LAYOUT - Premium Glass Design
+         ============================================ */
+      .app-shell {
+        display: grid;
+        grid-template-columns: var(--sidebar-width) 1fr;
+        grid-template-rows: 1fr var(--player-height);
+        height: 100vh;
+        overflow: hidden;
+        transition: grid-template-columns var(--transition-slow)
+          cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      .app-shell.queue-open {
+        grid-template-columns: var(--sidebar-width) 1fr 380px;
+      }
+
+      .app-shell.queue-open .main-wrapper {
+        grid-column: 2;
+      }
+
+      .app-shell.queue-open .player-bar {
+        grid-column: 1 / 4;
+      }
+
+      /* ============================================
+         SIDEBAR - Glassmorphic Navigation
+         ============================================ */
+      .sidebar {
+        grid-row: 1 / 3;
+        display: flex;
+        flex-direction: column;
+        padding: var(--space-5);
+        border-right: 1px solid var(--surface-border);
+        overflow-y: auto;
+        overflow-x: hidden;
+        transition: all var(--transition-slow);
+        position: relative;
+      }
+
+      .sidebar::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+          180deg,
+          rgba(var(--dynamic-primary-rgb), 0.03) 0%,
+          transparent 30%
+        );
+        pointer-events: none;
+        transition: background var(--transition-slow);
+      }
+
+      .sidebar.collapsed {
+        width: var(--sidebar-collapsed-width);
+      }
+
+      .sidebar-header {
+        padding: var(--space-2) 0 var(--space-8);
+        position: relative;
+        z-index: 1;
+      }
+
+      .logo {
+        display: flex;
+        align-items: center;
+        gap: var(--space-3);
+        cursor: pointer;
+        transition: transform var(--transition-base);
+      }
+
+      .logo:hover {
+        transform: scale(1.02);
+      }
+
+      .logo-icon {
+        width: 42px;
+        height: 42px;
+        flex-shrink: 0;
+        filter: drop-shadow(0 0 25px rgba(var(--dynamic-primary-rgb), 0.5));
+        transition: filter var(--transition-slow);
+      }
+
+      .logo:hover .logo-icon {
+        filter: drop-shadow(0 0 35px rgba(var(--dynamic-primary-rgb), 0.7));
+      }
+
+      .logo-text {
+        font-family: var(--font-family-display);
+        font-size: var(--text-xl);
+        font-weight: 800;
+        background: linear-gradient(
+          135deg,
+          var(--dynamic-primary, var(--aurora-purple)),
+          var(--dynamic-secondary, var(--aurora-teal))
+        );
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        letter-spacing: -0.02em;
+      }
+
+      /* Navigation */
+      .sidebar-nav {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-8);
+        position: relative;
+        z-index: 1;
+      }
+
+      .nav-section {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-1);
+      }
+
+      .nav-section-title {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--text-muted);
+        padding: var(--space-2) var(--space-3);
+        margin-bottom: var(--space-1);
+      }
+
+      .nav-item {
+        display: flex;
+        align-items: center;
+        gap: var(--space-3);
+        padding: var(--space-3) var(--space-3);
+        border-radius: var(--radius-xl);
+        color: var(--text-secondary);
+        cursor: pointer;
+        transition: all var(--transition-base);
+        position: relative;
+        overflow: hidden;
+      }
+
+      .nav-item::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+          135deg,
+          rgba(var(--dynamic-primary-rgb), 0.15),
+          rgba(var(--dynamic-secondary-rgb), 0.05)
+        );
+        opacity: 0;
+        transition: opacity var(--transition-base);
+        border-radius: inherit;
+      }
+
+      .nav-item:hover {
+        color: var(--text-primary);
+      }
+
+      .nav-item:hover::before {
+        opacity: 1;
+      }
+
+      .nav-item.active {
+        color: var(--text-primary);
+        background: rgba(var(--dynamic-primary-rgb), 0.1);
+        border: 1px solid rgba(var(--dynamic-primary-rgb), 0.2);
+      }
+
+      .nav-item.active::before {
+        opacity: 1;
+      }
+
+      .nav-item.active .nav-icon {
+        color: var(--dynamic-primary, var(--aurora-purple));
+        filter: drop-shadow(0 0 8px rgba(var(--dynamic-primary-rgb), 0.5));
+      }
+
+      .nav-icon {
+        width: 20px;
+        height: 20px;
+        flex-shrink: 0;
+        transition: all var(--transition-base);
+      }
+
+      .nav-label {
+        font-size: var(--text-sm);
+        font-weight: 500;
+        position: relative;
+        z-index: 1;
+      }
+
+      /* Sidebar Footer - Connected Services */
+      .sidebar-footer {
+        padding-top: var(--space-5);
+        border-top: 1px solid var(--surface-border);
+        margin-top: auto;
+        position: relative;
+        z-index: 1;
+      }
+
+      .connected-services {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-2);
+        margin-top: var(--space-3);
+      }
+
+      .service-badge {
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+        padding: var(--space-2) var(--space-3);
+        border-radius: var(--radius-lg);
+        font-size: var(--text-xs);
+        font-weight: 600;
+        color: var(--text-tertiary);
+        background: var(--surface-glass);
+        border: 1px solid var(--surface-border);
+        cursor: pointer;
+        transition: all var(--transition-base);
+        backdrop-filter: blur(10px);
+      }
+
+      .service-badge svg {
+        width: 16px;
+        height: 16px;
+        transition: transform var(--transition-base);
+      }
+
+      .service-badge:hover svg {
+        transform: scale(1.1);
+      }
+
+      .service-badge.spotify.connected {
+        color: var(--spotify-green);
+        border-color: rgba(29, 185, 84, 0.4);
+        background: rgba(29, 185, 84, 0.1);
+      }
+
+      .service-badge.youtube.connected {
+        color: var(--youtube-red);
+        border-color: rgba(255, 0, 0, 0.4);
+        background: rgba(255, 0, 0, 0.1);
+      }
+
+      .service-badge:hover {
+        background: var(--surface-glass-hover);
+        transform: translateX(4px);
+      }
+
+      /* ============================================
+         MAIN WRAPPER
+         ============================================ */
+      .main-wrapper {
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        position: relative;
+      }
+
+      /* ============================================
+         HEADER - Floating Glass Bar
+         ============================================ */
+      .header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: var(--header-height);
+        padding: 0 var(--space-6);
+        border-bottom: 1px solid var(--surface-border);
+        flex-shrink: 0;
+        position: relative;
+        z-index: 10;
+      }
+
+      .header::after {
+        content: "";
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 1px;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          rgba(var(--dynamic-primary-rgb), 0.3),
+          transparent
+        );
+      }
+
+      .header-left,
+      .header-right {
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+      }
+
+      .nav-btn {
+        width: 34px;
+        height: 34px;
+        border-radius: var(--radius-full);
+        background: var(--surface-glass);
+        border: 1px solid var(--surface-border);
+        transition: all var(--transition-base);
+      }
+
+      .nav-btn:hover:not(:disabled) {
+        background: var(--surface-glass-hover);
+        border-color: var(--surface-border-hover);
+        transform: scale(1.05);
+      }
+
+      .nav-btn:disabled {
+        opacity: 0.3;
+        cursor: not-allowed;
+      }
+
+      .nav-btn svg {
+        width: 16px;
+        height: 16px;
+      }
+
+      /* Search Bar - Premium Glass Style */
+      .header-center {
+        flex: 1;
+        max-width: 520px;
+        margin: 0 var(--space-8);
+      }
+
+      .search-bar {
+        display: flex;
+        align-items: center;
+        gap: var(--space-3);
+        padding: var(--space-2-5) var(--space-4);
+        border-radius: var(--radius-full);
+        background: var(--surface-glass);
+        border: 1px solid var(--surface-border);
+        transition: all var(--transition-base);
+        backdrop-filter: blur(20px);
+      }
+
+      .search-bar:focus-within {
+        background: var(--surface-glass-hover);
+        border-color: rgba(var(--dynamic-primary-rgb), 0.4);
+        box-shadow:
+          0 0 0 3px rgba(var(--dynamic-primary-rgb), 0.1),
+          0 8px 32px rgba(0, 0, 0, 0.2);
+      }
+
+      .search-icon {
+        width: 18px;
+        height: 18px;
+        color: var(--text-muted);
+        flex-shrink: 0;
+        transition: color var(--transition-base);
+      }
+
+      .search-bar:focus-within .search-icon {
+        color: var(--dynamic-primary, var(--aurora-purple));
+      }
+
+      .search-bar input {
+        flex: 1;
+        font-size: var(--text-sm);
+        font-weight: 500;
+        background: transparent;
+        border: none;
+        outline: none;
+        color: var(--text-primary);
+      }
+
+      .search-bar input::placeholder {
+        color: var(--text-muted);
+        font-weight: 400;
+      }
+
+      .search-shortcut {
+        padding: var(--space-1) var(--space-2);
+        font-size: 11px;
+        font-family: var(--font-family-mono);
+        font-weight: 500;
+        color: var(--text-muted);
+        background: var(--surface-glass-hover);
+        border-radius: var(--radius-md);
+        border: 1px solid var(--surface-border);
+      }
+
+      /* Header Buttons */
+      .btn-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 38px;
+        height: 38px;
+        border-radius: var(--radius-lg);
+        color: var(--text-secondary);
+        transition: all var(--transition-base);
+        position: relative;
+      }
+
+      .btn-icon:hover {
+        background: var(--surface-glass);
+        color: var(--text-primary);
+        transform: scale(1.05);
+      }
+
+      .btn-icon:active {
+        transform: scale(0.95);
+      }
+
+      .btn-icon svg {
+        width: 20px;
+        height: 20px;
+      }
+
+      .notifications-btn {
+        position: relative;
+      }
+
+      .notification-dot {
+        position: absolute;
+        top: 7px;
+        right: 7px;
+        width: 8px;
+        height: 8px;
+        background: linear-gradient(
+          135deg,
+          var(--aurora-pink),
+          var(--aurora-rose)
+        );
+        border-radius: 50%;
+        border: 2px solid var(--color-bg-secondary);
+        animation: pulse-scale 2s ease-in-out infinite;
+      }
+
+      /* User Menu Container */
+      .user-menu-container {
+        position: relative;
+      }
+
+      /* User Menu - Premium Pill Button */
+      .user-menu {
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+        padding: var(--space-1) var(--space-3) var(--space-1) var(--space-1);
+        border-radius: var(--radius-full);
+        background: var(--surface-glass);
+        border: 1px solid var(--surface-border);
+        cursor: pointer;
+        transition: all var(--transition-base);
+        backdrop-filter: blur(20px);
+      }
+
+      .user-menu:hover {
+        background: var(--surface-glass-hover);
+        border-color: var(--surface-border-hover);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      }
+
+      .user-menu .dropdown-icon {
+        transition: transform var(--transition-base);
+      }
+
+      .user-menu .dropdown-icon.rotated {
+        transform: rotate(180deg);
+      }
+
+      /* User Menu Dropdown - Glass Panel */
+      .user-menu-dropdown {
+        position: absolute;
+        top: calc(100% + 10px);
+        right: 0;
+        min-width: 280px;
+        border-radius: var(--radius-2xl);
+        padding: var(--space-2);
+        z-index: 1001;
+        animation: dropdownSlideIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+        box-shadow:
+          0 20px 50px rgba(0, 0, 0, 0.4),
+          0 0 1px rgba(255, 255, 255, 0.1) inset;
+      }
+
+      @keyframes dropdownSlideIn {
+        from {
+          opacity: 0;
+          transform: translateY(-12px) scale(0.95);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
+
+      .dropdown-header {
+        display: flex;
+        align-items: center;
+        gap: var(--space-3);
+        padding: var(--space-4);
+        border-radius: var(--radius-xl);
+        background: linear-gradient(
+          135deg,
+          rgba(var(--dynamic-primary-rgb), 0.1),
+          transparent
+        );
+        margin-bottom: var(--space-2);
+      }
+
+      .dropdown-avatar {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        background: linear-gradient(
+          135deg,
+          var(--dynamic-primary, var(--aurora-purple)),
+          var(--dynamic-secondary, var(--aurora-teal))
+        );
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        box-shadow: 0 4px 15px rgba(var(--dynamic-primary-rgb), 0.3);
+      }
+
+      .dropdown-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .dropdown-avatar svg {
+        width: 24px;
+        height: 24px;
+        color: white;
+      }
+
+      .dropdown-user-info {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+
+      .dropdown-user-name {
+        font-weight: 700;
+        color: var(--text-primary);
+        font-size: var(--text-base);
+      }
+
+      .dropdown-user-email {
+        font-size: var(--text-xs);
+        color: var(--text-tertiary);
+      }
+
+      .dropdown-divider {
+        height: 1px;
+        background: var(--surface-border);
+        margin: var(--space-2) 0;
+      }
+
+      .dropdown-item {
+        display: flex;
+        align-items: center;
+        gap: var(--space-3);
+        width: 100%;
+        padding: var(--space-3) var(--space-4);
+        border: none;
+        background: transparent;
+        border-radius: var(--radius-lg);
+        cursor: pointer;
+        color: var(--text-primary);
+        font-size: var(--text-sm);
+        font-weight: 500;
+        transition: all var(--transition-fast);
+      }
+
+      .dropdown-item:hover {
+        background: var(--surface-glass-hover);
+      }
+
+      .dropdown-item svg {
+        width: 18px;
+        height: 18px;
+        color: var(--text-tertiary);
+        transition: color var(--transition-fast);
+      }
+
+      .dropdown-item:hover svg {
+        color: var(--dynamic-primary, var(--aurora-purple));
+      }
+
+      .dropdown-item.logout {
+        color: var(--color-error);
+      }
+
+      .dropdown-item.logout svg {
+        color: var(--color-error);
+      }
+
+      .dropdown-item.logout:hover {
+        background: rgba(239, 68, 68, 0.1);
+      }
+
+      /* Backdrop for closing menu */
+      .user-menu-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 1000;
+      }
+
+      .user-avatar {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        background: linear-gradient(
+          135deg,
+          var(--dynamic-primary, var(--aurora-purple)),
+          var(--dynamic-secondary, var(--aurora-teal))
+        );
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(var(--dynamic-primary-rgb), 0.3);
+      }
+
+      .user-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .user-avatar svg {
+        width: 16px;
+        height: 16px;
+        color: white;
+      }
+
+      .user-name {
+        font-size: var(--text-sm);
+        font-weight: 600;
+        color: var(--text-primary);
+      }
+
+      .dropdown-icon {
+        width: 16px;
+        height: 16px;
+        color: var(--text-muted);
+      }
+
+      /* ============================================
+         MAIN CONTENT
+         ============================================ */
+      .main-content {
+        flex: 1;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding: var(--space-8);
+        position: relative;
+      }
+
+      /* Welcome Content */
+      .welcome-content {
+        animation: slide-up var(--transition-slow) ease forwards;
+      }
+
+      .welcome-hero {
+        text-align: center;
+        padding: var(--space-16) 0 var(--space-12);
+        position: relative;
+      }
+
+      .welcome-hero h1 {
+        font-size: clamp(2.5rem, 6vw, 4rem);
+        font-weight: 800;
+        margin-bottom: var(--space-5);
+        letter-spacing: -0.03em;
+        line-height: 1.1;
+      }
+
+      .welcome-hero p {
+        font-size: var(--text-lg);
+        color: var(--text-secondary);
+        max-width: 550px;
+        margin: 0 auto;
+        line-height: 1.7;
+      }
+
+      /* Quick Actions - Premium Cards */
+      .quick-actions {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: var(--space-6);
+        margin-top: var(--space-10);
+      }
+
+      .action-card {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        padding: var(--space-10) var(--space-6);
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .action-card::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(
+          circle at 50% 0%,
+          rgba(255, 255, 255, 0.08),
+          transparent 60%
+        );
+        opacity: 0;
+        transition: opacity var(--transition-base);
+      }
+
+      .action-card:hover::before {
+        opacity: 1;
+      }
+
+      .action-icon {
+        width: 72px;
+        height: 72px;
+        border-radius: var(--radius-2xl);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: var(--space-5);
+        position: relative;
+        transition: all var(--transition-base);
+      }
+
+      .action-card:hover .action-icon {
+        transform: scale(1.1) translateY(-4px);
+      }
+
+      .action-icon::after {
+        content: "";
+        position: absolute;
+        inset: -4px;
+        border-radius: inherit;
+        background: inherit;
+        filter: blur(20px);
+        opacity: 0.5;
+        z-index: -1;
+      }
+
+      .action-icon svg {
+        width: 32px;
+        height: 32px;
+        color: white;
+      }
+
+      .spotify-bg {
+        background: linear-gradient(135deg, #1db954, #1aa34a);
+        box-shadow: 0 8px 25px rgba(29, 185, 84, 0.4);
+      }
+
+      .youtube-bg {
+        background: linear-gradient(135deg, #ff0000, #cc0000);
+        box-shadow: 0 8px 25px rgba(255, 0, 0, 0.4);
+      }
+
+      .search-bg {
+        background: linear-gradient(
+          135deg,
+          var(--dynamic-primary, var(--aurora-purple)),
+          var(--dynamic-secondary, var(--aurora-teal))
+        );
+        box-shadow: 0 8px 25px rgba(var(--dynamic-primary-rgb), 0.4);
+      }
+
+      .action-card h3 {
+        font-size: var(--text-lg);
+        font-weight: 700;
+        margin-bottom: var(--space-2);
+        color: var(--text-primary);
+      }
+
+      .action-card p {
+        font-size: var(--text-sm);
+        color: var(--text-tertiary);
+        line-height: 1.5;
+      }
+
+      /* Recently Played */
+      .recent-section {
+        margin-top: var(--space-16);
+      }
+
+      .recent-section h2 {
+        margin-bottom: var(--space-6);
+        font-weight: 700;
+      }
+
+      .recent-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: var(--space-4);
+      }
+
+      .recent-item {
+        display: flex;
+        align-items: center;
+        gap: var(--space-4);
+        padding: var(--space-3);
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .recent-item::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+          135deg,
+          rgba(var(--dynamic-primary-rgb), 0.1),
+          transparent
+        );
+        opacity: 0;
+        transition: opacity var(--transition-base);
+      }
+
+      .recent-item:hover::before {
+        opacity: 1;
+      }
+
+      .recent-item img {
+        width: 56px;
+        height: 56px;
+        border-radius: var(--radius-lg);
+        object-fit: cover;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        transition: all var(--transition-base);
+      }
+
+      .recent-item:hover img {
+        transform: scale(1.05);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+      }
+
+      .recent-info {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-1);
+      }
+
+      .recent-title {
+        font-weight: 600;
+        color: var(--text-primary);
+        font-size: var(--text-sm);
+      }
+
+      .recent-artist {
+        font-size: var(--text-xs);
+        color: var(--text-tertiary);
+      }
+
+      .play-btn {
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        background: linear-gradient(
+          135deg,
+          var(--dynamic-primary, var(--aurora-purple)),
+          var(--dynamic-secondary, var(--aurora-teal))
+        );
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        transform: scale(0.8);
+        transition: all var(--transition-base);
+        box-shadow: 0 4px 15px rgba(var(--dynamic-primary-rgb), 0.4);
+      }
+
+      .play-btn svg {
+        width: 18px;
+        height: 18px;
+        color: white;
+        margin-left: 2px;
+      }
+
+      .recent-item:hover .play-btn {
+        opacity: 1;
+        transform: scale(1);
+      }
+
+      .play-btn:hover {
+        transform: scale(1.1) !important;
+      }
+
+      /* Provider button styles */
+      .provider-btn {
+        position: relative;
+        transition: all var(--transition-base);
+      }
+
+      .provider-btn.spotify {
+        color: var(--spotify-green);
+      }
+
+      .provider-btn.youtube {
+        color: var(--youtube-red);
+      }
+
+      .provider-btn:hover {
+        transform: scale(1.15);
+      }
+
+      .provider-btn svg {
+        width: 18px;
+        height: 18px;
+      }
+
+      /* ============================================
+         PLAYER BAR - Premium Glass Player
+         ============================================ */
+      .player-bar {
+        grid-column: 1 / 3;
+        display: grid;
+        grid-template-columns: 1fr 2fr 1fr;
+        align-items: center;
+        padding: 0 var(--space-5);
+        border-top: 1px solid var(--surface-border);
+        position: relative;
+        background: linear-gradient(
+          180deg,
+          rgba(var(--dynamic-primary-rgb), 0.03) 0%,
+          transparent 100%
+        );
+      }
+
+      .player-bar::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 1px;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          rgba(var(--dynamic-primary-rgb), 0.4),
+          transparent
+        );
+      }
+
+      /* Track Info */
+      .player-track {
+        display: flex;
+        align-items: center;
+        gap: var(--space-4);
+      }
+
+      .track-art {
+        width: 60px;
+        height: 60px;
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+        flex-shrink: 0;
+        position: relative;
+        box-shadow:
+          0 4px 20px rgba(0, 0, 0, 0.3),
+          0 0 40px rgba(var(--dynamic-primary-rgb), 0.15);
+        transition: all var(--transition-base);
+      }
+
+      .track-art:hover {
+        transform: scale(1.05);
+      }
+
+      .track-art img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .track-art.placeholder {
+        background: linear-gradient(
+          135deg,
+          var(--surface-glass),
+          var(--surface-glass-hover)
+        );
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .track-art.placeholder svg {
+        width: 24px;
+        height: 24px;
+        color: var(--text-muted);
+      }
+
+      .track-info {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        max-width: 200px;
+        gap: var(--space-1);
+      }
+
+      .track-title {
+        font-size: var(--text-sm);
+        font-weight: 600;
+        color: var(--text-primary);
+        transition: color var(--transition-base);
+      }
+
+      .track-title:hover {
+        color: var(--dynamic-primary, var(--aurora-purple));
+        cursor: pointer;
+      }
+
+      .track-artist {
+        font-size: var(--text-xs);
+        color: var(--text-tertiary);
+      }
+
+      .track-artist:hover {
+        color: var(--text-secondary);
+        cursor: pointer;
+      }
+
+      .like-btn {
+        transition: all var(--transition-base);
+      }
+
+      .like-btn:hover {
+        transform: scale(1.15);
+      }
+
+      .like-btn.active svg {
+        color: var(--dynamic-accent, var(--aurora-pink));
+        fill: var(--dynamic-accent, var(--aurora-pink));
+        filter: drop-shadow(
+          0 0 8px rgba(var(--dynamic-accent-rgb, 236, 72, 153), 0.5)
+        );
+      }
+
+      /* Player Controls */
+      .player-controls {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: var(--space-3);
+      }
+
+      .control-buttons {
+        display: flex;
+        align-items: center;
+        gap: var(--space-3);
+      }
+
+      .control-buttons .btn-icon {
+        transition: all var(--transition-base);
+      }
+
+      .control-buttons .btn-icon:hover {
+        color: var(--text-primary);
+      }
+
+      .play-pause-btn {
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        background: var(--text-primary);
+        color: var(--text-inverse);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all var(--transition-base);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+      }
+
+      .play-pause-btn:hover {
+        transform: scale(1.08);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+      }
+
+      .play-pause-btn:active {
+        transform: scale(0.95);
+      }
+
+      .play-pause-btn svg {
+        width: 18px;
+        height: 18px;
+      }
+
+      .control-buttons .btn-icon.active {
+        color: var(--dynamic-primary, var(--aurora-purple));
+      }
+
+      .control-buttons .btn-icon.active:hover {
+        color: var(--dynamic-primary, var(--aurora-purple));
+        filter: drop-shadow(0 0 8px rgba(var(--dynamic-primary-rgb), 0.5));
+      }
+
+      .repeat-indicator {
+        position: absolute;
+        font-size: 9px;
+        font-weight: 700;
+        bottom: 4px;
+        right: 4px;
+        color: var(--dynamic-primary, var(--aurora-purple));
+      }
+
+      /* Progress Bar - Dynamic Gradient */
+      .progress-bar {
+        display: flex;
+        align-items: center;
+        gap: var(--space-3);
+        width: 100%;
+        max-width: 600px;
+      }
+
+      .time-current,
+      .time-total {
+        font-size: 11px;
+        font-weight: 500;
+        font-family: var(--font-family-mono);
+        color: var(--text-muted);
+        min-width: 40px;
+        text-align: center;
+      }
+
+      .progress-track {
+        flex: 1;
+        height: 4px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: var(--radius-full);
+        cursor: pointer;
+        position: relative;
+        transition: height var(--transition-fast);
+      }
+
+      .progress-track:hover {
+        height: 6px;
+      }
+
+      .progress-fill {
+        height: 100%;
+        background: linear-gradient(
+          90deg,
+          var(--dynamic-primary, var(--aurora-purple)),
+          var(--dynamic-secondary, var(--aurora-teal))
+        );
+        border-radius: var(--radius-full);
+        transition: width 0.1s linear;
+        position: relative;
+      }
+
+      .progress-handle {
+        position: absolute;
+        top: 50%;
+        width: 14px;
+        height: 14px;
+        background: white;
+        border-radius: 50%;
+        transform: translate(-50%, -50%);
+        opacity: 0;
+        transition: all var(--transition-fast);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+      }
+
+      .progress-track:hover .progress-handle {
+        opacity: 1;
+      }
+
+      .progress-track:hover .progress-fill {
+        box-shadow: 0 0 12px rgba(var(--dynamic-primary-rgb), 0.5);
+      }
+
+      /* Player Extra Controls */
+      .player-extra {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: var(--space-2);
+      }
+
+      .player-extra .btn-icon.active {
+        color: var(--dynamic-primary, var(--aurora-purple));
+      }
+
+      /* Sleep Timer Wrapper */
+      .sleep-timer-wrapper {
+        position: relative;
+      }
+
+      .sleep-timer-wrapper .sleep-timer-badge {
+        position: absolute;
+        top: -8px;
+        right: -8px;
+        padding: 2px 6px;
+        background: rgba(var(--dynamic-primary-rgb), 0.9);
+        border-radius: var(--radius-full);
+        font-size: 10px;
+        font-weight: 600;
+        color: white;
+        pointer-events: none;
+        animation: pulse 2s ease-in-out infinite;
+      }
+
+      .sleep-timer-dropdown {
+        position: absolute;
+        bottom: 100%;
+        right: 0;
+        margin-bottom: var(--space-3);
+        min-width: 200px;
+        padding: var(--space-2);
+        background: var(--color-bg-elevated);
+        backdrop-filter: var(--glass-blur);
+        border: 1px solid var(--surface-border);
+        border-radius: var(--radius-xl);
+        box-shadow: var(--shadow-xl);
+        z-index: var(--z-dropdown);
+        animation: slide-up var(--transition-fast);
+      }
+
+      .sleep-timer-active-display {
+        display: flex;
+        align-items: center;
+        gap: var(--space-3);
+        padding: var(--space-3);
+        background: rgba(var(--dynamic-primary-rgb), 0.1);
+        border-radius: var(--radius-md);
+        margin-bottom: var(--space-2);
+      }
+
+      .sleep-timer-time {
+        font-family: var(--font-family-mono);
+        font-weight: 600;
+        color: var(--dynamic-primary);
+      }
+
+      .sleep-timer-cancel {
+        margin-left: auto;
+        padding: var(--space-1) var(--space-2);
+        background: transparent;
+        border: 1px solid var(--surface-border);
+        border-radius: var(--radius-sm);
+        font-size: var(--text-xs);
+        color: var(--text-secondary);
+        cursor: pointer;
+        transition: all var(--transition-fast);
+      }
+
+      .sleep-timer-cancel:hover {
+        background: var(--color-error);
+        border-color: var(--color-error);
+        color: white;
+      }
+
+      .sleep-timer-option {
+        display: block;
+        width: 100%;
+        padding: var(--space-3) var(--space-4);
+        background: transparent;
+        border: none;
+        border-radius: var(--radius-md);
+        font-size: var(--text-sm);
+        color: var(--text-primary);
+        text-align: left;
+        cursor: pointer;
+        transition: background var(--transition-fast);
+      }
+
+      .sleep-timer-option:hover {
+        background: var(--surface-glass-hover);
+      }
+
+      .volume-control {
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+      }
+
+      .volume-slider {
+        width: 100px;
+        height: 4px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: var(--radius-full);
+        position: relative;
+        transition: height var(--transition-fast);
+      }
+
+      .volume-slider:hover {
+        height: 6px;
+      }
+
+      .volume-slider input {
+        position: absolute;
+        width: 100%;
+        height: 200%;
+        top: -50%;
+        opacity: 0;
+        cursor: pointer;
+      }
+
+      .volume-fill {
+        height: 100%;
+        background: var(--text-primary);
+        border-radius: var(--radius-full);
+        pointer-events: none;
+        transition: background var(--transition-base);
+      }
+
+      .volume-slider:hover .volume-fill {
+        background: var(--dynamic-primary, var(--aurora-purple));
+      }
+
+      /* Responsive */
+      @media (max-width: 1023px) {
+        .app-shell {
+          grid-template-columns: var(--sidebar-collapsed-width) 1fr;
+        }
+
+        .sidebar {
+          width: var(--sidebar-collapsed-width);
+          align-items: center;
+        }
+
+        .nav-label,
+        .nav-section-title,
+        .logo-text,
+        .sidebar-footer,
+        .user-name,
+        .search-shortcut {
+          display: none;
+        }
+
+        .nav-item {
+          justify-content: center;
+          padding: var(--space-3);
+        }
+      }
+
+      @media (max-width: 767px) {
+        .app-shell {
+          grid-template-columns: 1fr;
+          grid-template-rows: var(--header-height) 1fr var(--player-height);
+        }
+
+        .sidebar {
+          display: none;
+        }
+
+        .player-bar {
+          grid-column: 1;
+          grid-template-columns: 1fr auto;
+          gap: var(--space-3);
+          padding: var(--space-2) var(--space-4);
+        }
+
+        .player-controls {
+          display: none;
+        }
+
+        .player-extra {
+          display: none;
+        }
+
+        .header-center {
+          display: none;
+        }
+      }
+    `,
+  ],
+})
+export class AppComponent implements OnInit, OnDestroy {
+  @ViewChild("queuePanel") queuePanel!: QueuePanelComponent;
+  @ViewChild("youtubePlayer") youtubePlayer!: YouTubePlayerComponent;
+  @ViewChild("searchInput") searchInput!: ElementRef<HTMLInputElement>;
+
+  // Inject services
+  private readonly playerService = inject(PlayerService);
+  private readonly themeService = inject(ThemeService);
+  private readonly dynamicThemeService = inject(DynamicThemeService);
+  private readonly toastService = inject(ToastService);
+  private readonly authService = inject(AuthService);
+  private readonly youtubePlayerService = inject(YouTubePlayerService);
+  private readonly spotifySdkService = inject(SpotifySdkService);
+  private readonly router = inject(Router);
+  private readonly likedTracksService = inject(LikedTracksService);
+  private readonly keyboardShortcuts = inject(KeyboardShortcutsService);
+  private readonly sleepTimerService = inject(SleepTimerService);
+  private readonly mediaSessionService = inject(MediaSessionService);
+
+  private readonly destroy$ = new Subject<void>();
+
+  // Queue visibility
+  queueVisible = false;
+
+  // Sleep timer
+  sleepTimerDropdownOpen = false;
+  get sleepTimerActive(): boolean {
+    return this.sleepTimerService.isActive();
+  }
+  get sleepTimerRemaining(): string {
+    return this.sleepTimerService.remainingFormatted();
+  }
+  get sleepTimerPresets() {
+    return this.sleepTimerService.presetOptions;
   }
 
-  setTab(tab: 'for-you'|'library'|'playlists'){ this.activeTab.set(tab); this.closeMobileSidebar(); }
+  // Keyboard shortcuts modal
+  shortcutsModalOpen = false;
+  get shortcutsByCategory() {
+    return this.keyboardShortcuts.getShortcutsByCategory();
+  }
 
-  toggleMobileSidebar() { this.mobileSidebarOpen.update(open => !open); }
-  closeMobileSidebar() { this.mobileSidebarOpen.set(false); }
+  // PWA install
+  showPwaInstallBanner = false;
+  private pwaInstallPrompt: any = null;
+
+  // Sidebar state
+  sidebarCollapsed = false;
+  activeRoute = "home";
+
+  // User menu dropdown state
+  userMenuOpen = false;
+
+  // Navigation state
+  canGoBack = false;
+  canGoForward = false;
+
+  // Search
+  searchQuery = "";
+
+  // Theme - now backed by ThemeService
+  get isDarkTheme(): boolean {
+    return this.themeService.isDarkMode();
+  }
+
+  get dynamicThemeEnabled(): boolean {
+    return this.dynamicThemeService.isEnabled();
+  }
+
+  // User
+  userName = "";
+  userAvatar = "";
+
+  // Provider connections - now backed by AuthService
+  get spotifyConnected(): boolean {
+    return this.authService.isProviderConnected("spotify");
+  }
+
+  get youtubeConnected(): boolean {
+    return this.authService.isProviderConnected("youtube");
+  }
+
+  // Player state - now backed by PlayerService signals
+  get currentTrack(): Track | null {
+    return this.playerService.currentTrack();
+  }
+
+  get isPlaying(): boolean {
+    return this.playerService.isPlaying();
+  }
+
+  get isShuffled(): boolean {
+    return this.playerService.isShuffled();
+  }
+
+  get repeatMode(): RepeatMode {
+    return this.playerService.repeatMode();
+  }
+
+  // isLiked is now computed from LikedTracksService
+  get isLiked(): boolean {
+    const track = this.currentTrack;
+    if (!track) return false;
+    const provider = track.provider as "spotify" | "youtube";
+    return this.likedTracksService.isLiked(provider, track.id);
+  }
+
+  get currentTime(): number {
+    return this.playerService.position() / 1000; // Convert ms to seconds
+  }
+
+  get duration(): number {
+    return this.playerService.duration() / 1000; // Convert ms to seconds
+  }
+
+  get volume(): number {
+    return this.playerService.volume();
+  }
+
+  get isMuted(): boolean {
+    return this.playerService.isMuted();
+  }
+
+  // Content
+  hasRouteContent = false;
+  recentlyPlayed: Track[] = [];
+
+  get progressPercent(): number {
+    return this.playerService.progressPercent();
+  }
+
+  get currentPlaybackSource() {
+    return this.playerService.currentPlaybackSource();
+  }
+
+  // Open track in Spotify web player
+  openInSpotify(): void {
+    const track = this.currentTrack;
+    if (track && track.provider === "spotify") {
+      const trackId = track.providerId || track.id;
+      window.open(`https://open.spotify.com/track/${trackId}`, "_blank");
+    }
+  }
+
+  // Open track in YouTube
+  openInYouTube(): void {
+    const track = this.currentTrack;
+    if (track && track.provider === "youtube") {
+      const videoId = track.providerId || track.id;
+      window.open(`https://www.youtube.com/watch?v=${videoId}`, "_blank");
+    }
+  }
 
   ngOnInit(): void {
-    // Re-run once after Angular initializes (in case constructor ran before location updated)
-    if (!this.sessionId()) {
-      setTimeout(() => { if (!this.sessionId()) this.initialSessionCapture(); }, 50);
+    // Initialize theme from ThemeService (it auto-initializes from localStorage)
+    this.loadUserData();
+    this.loadRecentlyPlayed();
+
+    // Track active route from router events
+    this.router.events
+      .pipe(
+        filter(
+          (event): event is NavigationEnd => event instanceof NavigationEnd,
+        ),
+        takeUntil(this.destroy$),
+      )
+      .subscribe((event) => {
+        this.updateActiveRouteFromUrl(event.urlAfterRedirects);
+      });
+
+    // Set initial active route from current URL
+    this.updateActiveRouteFromUrl(this.router.url);
+
+    // Connect player service to SDK services
+    this.playerService.setYouTubePlayerService(this.youtubePlayerService);
+    this.playerService.setSpotifySdkService(this.spotifySdkService);
+
+    // Subscribe to track changes to update liked status
+    this.playerService.trackChanged$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((track) => {
+        this.updateLikedStatus(track);
+      });
+
+    // Subscribe to YouTube video requests
+    this.playerService.youtubeVideoRequested$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((videoId) => {
+        console.log("YouTube video requested:", videoId);
+        // Use setTimeout to ensure ViewChild is available
+        setTimeout(() => {
+          if (this.youtubePlayer) {
+            this.youtubePlayer.playVideo(videoId);
+          } else {
+            console.error("YouTube player component not available");
+          }
+        }, 0);
+      });
+
+    // Subscribe to Spotify SDK errors to show toast messages
+    this.spotifySdkService.playerError$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((errorMessage) => {
+        this.toastService.error("Spotify Playback Error", errorMessage);
+      });
+
+    // Initialize Spotify SDK when connected
+    if (this.spotifyConnected) {
+      this.initializeSpotifySdk();
     }
-    this.startProgressLoop(); // keep placeholder; can be a no-op now
-    // Theme effect
-  }
 
-  private async initialSessionCapture() {
-    const search = window.location.search;
-    const hash = window.location.hash;
-    const params = new URLSearchParams(search);
-    let sid = params.get('sessionId');
-    let userId = params.get('userId');
-    const err = params.get('authError');
+    // Setup keyboard shortcuts listeners
+    this.setupKeyboardShortcuts();
 
-    if (err) this.authError.set(err);
+    // Setup sleep timer listeners
+    this.setupSleepTimerListeners();
 
-    if (!sid && hash) {
-      const h = new URLSearchParams(hash.startsWith('#') ? hash.substring(1) : hash);
-      sid = h.get('sessionId') || sid;
-      userId = userId || h.get('userId');
-    }
+    // Setup PWA install prompt
+    this.setupPwaInstallPrompt();
 
-    // Fallback regex if URLSearchParams missed (edge cases with encoded ?)
-    if (!sid) {
-      const m = /(sessionId=)([A-Za-z0-9\-]+)/.exec(search + hash);
-      if (m) sid = m[2];
-    }
-    if (!userId && sid) {
-      const m = /(userId=)([A-Za-z0-9\-]+)/.exec(search + hash);
-      if (m) userId = m[2];
-    }
-
-    // If we have both sessionId and userId from OAuth callback, exchange for JWT token
-    if (sid && userId) {
-      try {
-        console.log('OAuth callback detected, exchanging for JWT token...');
-        const response = await this.auth.exchangeOAuthSession(sid, userId);
-
-        console.log('OAuth authentication successful, user logged in');
-
-        // Clean up URL parameters
-        const cleanUrl = window.location.origin + window.location.pathname;
-        window.history.replaceState({}, document.title, cleanUrl);
-      } catch (error) {
-        console.error('Failed to exchange OAuth session for JWT token:', error);
-        this.authError.set('Authentication failed');
-      }
-    }
-
-    // Handle regular session for API calls
-    const stored = localStorage.getItem('audiora_session');
-    if (!sid && stored) sid = stored;
-    if (sid) {
-      this.setSession(sid);
-    }
-
-    // Diagnostics in console
-    // eslint-disable-next-line no-console
-    console.debug('[Audiora] Session capture', { search, hash, captured: sid, userId, stored });
-
-    // If session already existed and playlists are not yet loaded (fresh app load), ensure fetch
-    if (this.sessionId() && !this.spotifyPlaylists().length && !this.youtubePlaylists().length) {
-      this.fetchSpotifyPlaylists();
-      this.fetchYouTubePlaylists();
+    // Show welcome toast if first visit
+    const hasVisited = localStorage.getItem("audiora_visited");
+    if (!hasVisited) {
+      this.toastService.info(
+        "Welcome to Audiora!",
+        "Connect your music services to get started. Press ? to see keyboard shortcuts.",
+      );
+      localStorage.setItem("audiora_visited", "true");
     }
   }
 
-  loginSpotify() {
-    if (!this.spotifyPlaylists().length) {
-      this.showSpotifyHelp.set(true);
-      return;
-    }
-    this.startSpotifyAuth();
+  private setupKeyboardShortcuts(): void {
+    // Toggle queue from keyboard
+    this.keyboardShortcuts.toggleQueue$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => {
+        this.toggleQueue();
+      });
+
+    // Toggle like from keyboard
+    this.keyboardShortcuts.toggleLike$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => {
+        this.toggleLike();
+      });
+
+    // Focus search from keyboard
+    this.keyboardShortcuts.focusSearch$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => {
+        this.focusSearchInput();
+      });
+
+    // Show shortcuts modal
+    this.keyboardShortcuts.showShortcuts$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => {
+        this.shortcutsModalOpen = true;
+      });
   }
 
-  private startSpotifyAuth() {
-    const sid = this.sessionId();
-    const url = sid ? `${this.backendBase}/api/auth/spotify/login?sessionId=${encodeURIComponent(sid)}` : `${this.backendBase}/api/auth/spotify/login`;
-    this.http.get<{authUrl: string}>(url).subscribe(r => window.location.href = r.authUrl);
+  private setupSleepTimerListeners(): void {
+    // Sleep timer ended
+    this.sleepTimerService.timerEnded$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => {
+        this.toastService.info(
+          "Sleep Timer",
+          "Playback stopped. Goodnight! 🌙",
+        );
+      });
+
+    // Sleep timer started
+    this.sleepTimerService.timerStarted$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((preset) => {
+        const label =
+          preset === "end-of-track"
+            ? "End of current track"
+            : `${preset} minutes`;
+        this.toastService.success(
+          "Sleep Timer Set",
+          `Music will stop in ${label}`,
+        );
+      });
+
+    // Sleep timer cancelled
+    this.sleepTimerService.timerCancelled$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => {
+        this.toastService.info("Sleep Timer", "Timer cancelled");
+      });
   }
 
-  beginSpotifyAuth() {
-    this.showSpotifyHelp.set(false);
-    this.startSpotifyAuth();
-  }
-
-  cancelSpotifyHelp() { this.showSpotifyHelp.set(false); }
-  loginYouTube() {
-    const sid = this.sessionId();
-    const url = sid ? `${this.backendBase}/api/auth/youtube/login?sessionId=${encodeURIComponent(sid)}` : `${this.backendBase}/api/auth/youtube/login`;
-    this.http.get<{authUrl: string}>(url).subscribe(r => window.location.href = r.authUrl);
-  }
-
-  private setSession(id: string) {
-    this.sessionId.set(id);
-    localStorage.setItem('audiora_session', id);
-    this.autoQueue.setSessionId(id);
-    // Auto-load playlists for both providers
-    this.fetchSpotifyPlaylists();
-    this.fetchYouTubePlaylists();
-  }
-
-  clearSession() {
-    this.sessionId.set(null);
-    localStorage.removeItem('audiora_session');
-    this.autoQueue.setSessionId(null);
-    this.autoQueue.clearHistory();
-    this.spotifyPlaylists.set([]);
-    this.youtubePlaylists.set([]);
-    this.youtubeItems.set([]);
-    this.playerState.set(null);
-  }
-
-  private authHeaders() {
-    return { 'X-Session-Id': this.sessionId() || '' };
-  }
-
-  fetchSpotifyPlaylists() {
-    if (!this.sessionId()) return;
-    this.http.get<{items:any[]}>(`${this.backendBase}/api/spotify/playlists`, { headers: this.authHeaders() }).subscribe({
-      next: r => {
-        this.spotifyPlaylists.set(r.items || []);
-        this.backendConnected.set(true);
-        if ((r.items || []).length > 0 && this.showSpotifyHelp()) {
-          // Hide instructions once playlists are available
-          this.showSpotifyHelp.set(false);
-        }
-      },
-      error: err => {
-        console.log('Spotify playlists not available (may need Spotify connection):', err.status);
-        this.spotifyPlaylists.set([]);
-        if (err.status === 0) {
-          this.backendConnected.set(false);
-        }
-        // If user has a session but no playlists, show help panel automatically (unless explicitly dismissed)
-        if (this.sessionId() && !this.showSpotifyHelp()) {
-          this.showSpotifyHelp.set(true);
-        }
-      }
-    });
-  }
-
-  fetchYouTubePlaylists() {
-    if (!this.sessionId()) return;
-    this.http.get<{items:any[]}>(`${this.backendBase}/api/youtube/playlists`, { headers: this.authHeaders() }).subscribe({
-      next: r => {
-        this.youtubePlaylists.set(r.items || []);
-        this.backendConnected.set(true);
-      },
-      error: err => {
-        console.log('YouTube playlists not available (may need YouTube connection):', err.status);
-        this.youtubePlaylists.set([]);
-        if (err.status === 0) {
-          this.backendConnected.set(false);
-        }
+  private setupPwaInstallPrompt(): void {
+    // Listen for PWA installable event
+    window.addEventListener("pwa-installable", (event: any) => {
+      this.pwaInstallPrompt = event.detail;
+      // Check if user hasn't dismissed the banner before
+      const dismissed = localStorage.getItem("audiora_pwa_dismissed");
+      if (!dismissed) {
+        setTimeout(() => {
+          this.showPwaInstallBanner = true;
+        }, 5000); // Show after 5 seconds
       }
     });
   }
 
-  selectYouTubePlaylist(p: any) {
-    this.selectedPlaylist.set(p);
-    this.playlistProvider.set('youtube');
-    this.selectedYouTubePlaylistId.set(p.id);
-    this.fetchYouTubePlaylistTracks(p.id);
-    this.closeMobileSidebar();
-  }
-
-  fetchYouTubePlaylistTracks(id: string) {
-    if (!this.sessionId()) return;
-    this.http.get<{items:any[]}>(`${this.backendBase}/api/youtube/playlists/${id}/items`, { headers: this.authHeaders() }).subscribe({
-      next: r => {
-        this.playlistTracks.set(r.items || []);
-        this.youtubeItems.set(r.items || []); // Keep for backward compatibility
-      },
-      error: err => {
-        console.log('YouTube playlist tracks not available:', err.status);
-        this.playlistTracks.set([]);
-        this.youtubeItems.set([]);
+  // Focus search input
+  focusSearchInput(): void {
+    // Navigate to search if not already there
+    if (this.activeRoute !== "search") {
+      this.router.navigate(["/search"]);
+    }
+    // Try to focus the search input
+    setTimeout(() => {
+      const searchInput = document.querySelector(
+        ".search-input",
+      ) as HTMLInputElement;
+      if (searchInput) {
+        searchInput.focus();
+        searchInput.select();
       }
-    });
+    }, 100);
   }
 
-  fetchYouTubeItems(id: string) {
-    this.fetchYouTubePlaylistTracks(id); // Redirect to new method
+  // Sleep timer methods
+  toggleSleepTimerDropdown(): void {
+    this.sleepTimerDropdownOpen = !this.sleepTimerDropdownOpen;
   }
 
-  playSpotifyPlaylist(p: any) {
-    this.selectedPlaylist.set(p);
-    this.playlistProvider.set('spotify');
-    this.fetchSpotifyPlaylistTracks(p.id);
-    this.closeMobileSidebar();
+  setSleepTimer(preset: SleepTimerPreset): void {
+    this.sleepTimerService.startTimer(preset);
+    this.sleepTimerDropdownOpen = false;
   }
 
-  fetchSpotifyPlaylistTracks(id: string) {
-    if (!this.sessionId()) return;
-    this.http.get<{items:any[]}>(`${this.backendBase}/api/spotify/playlists/${id}/tracks`, { headers: this.authHeaders() }).subscribe(
-      r => this.playlistTracks.set(r.items || []),
-      error => {
-        console.warn('Failed to fetch Spotify playlist tracks, falling back to direct playback:', error);
-        // Fallback to original behavior - start playing the playlist immediately
-        const body = { context_uri: `spotify:playlist:${id}` };
-        this.http.post(`${this.backendBase}/api/spotify/player/play`, body, { headers: this.authHeaders() }).subscribe(() => this.refreshState());
+  cancelSleepTimer(): void {
+    this.sleepTimerService.cancelTimer();
+    this.sleepTimerDropdownOpen = false;
+  }
+
+  // Keyboard shortcuts modal
+  closeShortcutsModal(): void {
+    this.shortcutsModalOpen = false;
+  }
+
+  formatShortcut(shortcut: any): string {
+    return this.keyboardShortcuts.formatShortcut(shortcut);
+  }
+
+  // PWA install methods
+  async installPwa(): Promise<void> {
+    if ((window as any).installPWA) {
+      const accepted = await (window as any).installPWA();
+      if (accepted) {
+        this.showPwaInstallBanner = false;
+        this.toastService.success(
+          "Installed!",
+          "Audiora has been added to your home screen",
+        );
       }
+    }
+  }
+
+  dismissPwaBanner(): void {
+    this.showPwaInstallBanner = false;
+    localStorage.setItem("audiora_pwa_dismissed", "true");
+  }
+
+  private async initializeSpotifySdk(): Promise<void> {
+    try {
+      const connected = await this.spotifySdkService.connect();
+      if (connected) {
+        this.toastService.success(
+          "Spotify Web Player Ready",
+          "You can now play music directly in the browser",
+        );
+      }
+    } catch (error) {
+      console.error("Failed to initialize Spotify SDK:", error);
+    }
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  private updateLikedStatus(track: Track | null): void {
+    // isLiked is now a getter that checks LikedTracksService automatically
+    // This method is kept for compatibility but no longer needs to do anything
+  }
+
+  // Sidebar
+  toggleSidebar(): void {
+    this.sidebarCollapsed = !this.sidebarCollapsed;
+  }
+
+  private updateActiveRouteFromUrl(url: string): void {
+    const path = url.split("?")[0]; // Remove query params
+    if (path === "/" || path === "") {
+      this.activeRoute = "home";
+    } else if (path.startsWith("/search")) {
+      this.activeRoute = "search";
+    } else if (path.startsWith("/library")) {
+      this.activeRoute = "library";
+    } else if (path.startsWith("/liked")) {
+      this.activeRoute = "liked";
+    } else if (path.startsWith("/playlist")) {
+      this.activeRoute = "library";
+    } else if (path.startsWith("/profile")) {
+      this.activeRoute = "profile";
+    } else if (path.startsWith("/settings")) {
+      this.activeRoute = "settings";
+    }
+  }
+
+  setActiveRoute(route: string): void {
+    this.activeRoute = route;
+    // Navigate to the corresponding route
+    switch (route) {
+      case "home":
+        this.router.navigate(["/"]);
+        break;
+      case "search":
+        this.router.navigate(["/search"]);
+        break;
+      case "library":
+        this.router.navigate(["/library"]);
+        break;
+      case "liked":
+        this.router.navigate(["/liked"]);
+        break;
+      default:
+        this.router.navigate(["/"]);
+    }
+  }
+
+  // Navigation
+  goBack(): void {
+    window.history.back();
+  }
+
+  goForward(): void {
+    window.history.forward();
+  }
+
+  // Search
+  performSearch(): void {
+    if (this.searchQuery.trim()) {
+      // Navigate to search page with query parameter
+      this.router.navigate(["/search"], {
+        queryParams: { q: this.searchQuery.trim() },
+      });
+      this.activeRoute = "search";
+    }
+  }
+
+  // Theme - now using ThemeService
+  toggleTheme(): void {
+    this.themeService.toggleTheme();
+  }
+
+  toggleDynamicTheme(): void {
+    this.dynamicThemeService.setEnabled(!this.dynamicThemeEnabled);
+    if (this.dynamicThemeEnabled) {
+      this.toastService.success(
+        "Dynamic theme enabled",
+        "Colors will adapt to album art",
+      );
+    } else {
+      this.toastService.info(
+        "Dynamic theme disabled",
+        "Using default aurora colors",
+      );
+    }
+  }
+
+  // User
+  loadUserData(): void {
+    // Load user data from storage/API
+  }
+
+  toggleUserMenu(): void {
+    this.userMenuOpen = !this.userMenuOpen;
+  }
+
+  closeUserMenu(): void {
+    this.userMenuOpen = false;
+  }
+
+  navigateToProfile(): void {
+    this.router.navigate(["/profile"]);
+    this.closeUserMenu();
+  }
+
+  navigateToSettings(): void {
+    this.router.navigate(["/settings"]);
+    this.closeUserMenu();
+  }
+
+  logout(): void {
+    this.authService.logout();
+    this.router.navigate(["/"]);
+    this.closeUserMenu();
+    this.toastService.info(
+      "Logged out",
+      "You have been logged out successfully",
     );
   }
 
-  // Removed old direct playback control wrappers (play/pause/next/previous/state)
-  // Bottom player + PlayerService handle playback. Keep refreshState utility for Spotify SDK play callback.
-  refreshState() {
-    if (!this.sessionId()) return;
-    this.http.get(`${this.backendBase}/api/spotify/player/state`, { headers: this.authHeaders() }).subscribe(r => this.playerState.set(r));
-  }
-
-  private async ensureSpotifySdkReady() {
-    if (!this.sessionId()) return;
-    if (this.spotifySdk.ready()) return;
-    await this.spotifySdk.load(async () => {
-      const r: any = await this.http.get(`${this.backendBase}/api/spotify/player/access-token`, { headers: this.authHeaders() }).toPromise();
-      return r.accessToken;
+  // Services
+  connectSpotify(): void {
+    this.authService.initiateOAuthFlow("spotify").subscribe({
+      next: (response) => {
+        // Redirect to Spotify auth URL
+        window.location.href = response.authUrl;
+      },
+      error: (error) => {
+        this.toastService.error("Failed to connect Spotify", error.message);
+      },
     });
-    // Poll briefly for device
-    const start = Date.now();
-    while (!this.spotifySdk.deviceId() && Date.now() - start < 5000) {
-      await new Promise(r => setTimeout(r, 250));
-    }
-    const deviceId = this.spotifySdk.deviceId();
-    if (deviceId) {
-      await this.http.post(`${this.backendBase}/api/spotify/player/transfer`, { deviceId, play: false }, { headers: this.authHeaders() }).toPromise();
+  }
+
+  connectYouTube(): void {
+    this.authService.initiateOAuthFlow("youtube").subscribe({
+      next: (response) => {
+        // Redirect to YouTube auth URL
+        window.location.href = response.authUrl;
+      },
+      error: (error) => {
+        this.toastService.error("Failed to connect YouTube", error.message);
+      },
+    });
+  }
+
+  // Playlists
+  createPlaylist(): void {
+    console.log("Create playlist");
+  }
+
+  // Player controls - now using PlayerService
+  togglePlayPause(): void {
+    this.playerService.togglePlayPause();
+  }
+
+  previousTrack(): void {
+    this.playerService.previous();
+  }
+
+  nextTrack(): void {
+    this.playerService.next();
+  }
+
+  toggleShuffle(): void {
+    this.playerService.toggleShuffle();
+  }
+
+  toggleRepeat(): void {
+    this.playerService.cycleRepeatMode();
+  }
+
+  toggleLike(): void {
+    const track = this.currentTrack;
+    if (!track) return;
+
+    const provider = track.provider as "spotify" | "youtube";
+    const isCurrentlyLiked = this.likedTracksService.isLiked(
+      provider,
+      track.id,
+    );
+
+    if (isCurrentlyLiked) {
+      this.likedTracksService.unlike(provider, track.id);
+      this.toastService.info("Removed from Liked Songs");
     } else {
-      console.warn('[Audiora] Spotify SDK device not ready after timeout');
+      // For YouTube tracks, artist might be in different places
+      const artistName =
+        track.artist ||
+        (track as any).channel ||
+        (track as any).channelTitle ||
+        "Unknown Artist";
+
+      this.likedTracksService.like({
+        id: track.id,
+        providerId: track.providerId || track.id,
+        title: track.title,
+        artist: artistName,
+        album: track.provider === "spotify" ? track.album : undefined,
+        albumArt: track.albumArt,
+        duration: track.duration || 0,
+        provider: provider,
+        uri:
+          track.provider === "spotify"
+            ? `spotify:track:${track.providerId || track.id}`
+            : undefined,
+        videoId:
+          track.provider === "youtube"
+            ? track.providerId || track.id
+            : undefined,
+      });
+      this.toastService.success("Added to Liked Songs");
     }
   }
 
-  async playSpotifyTrack(t: any) {
-    await this.ensureSpotifySdkReady();
-    const playable: SpotifyPlayable = {
-      provider: 'spotify',
-      uri: t.uri,
-      id: t.id,
-      title: t.name,
-      artists: t.artists || [],
-      album: t.album,
-      durationMs: t.durationMs,
-      image: t.image
-    };
-    this.player.play(playable, false);
+  seekTo(event: MouseEvent): void {
+    const target = event.currentTarget as HTMLElement;
+    const rect = target.getBoundingClientRect();
+    const percent = (event.clientX - rect.left) / rect.width;
+    this.playerService.seekPercent(percent);
   }
 
-  playYouTubeVideo(v: any) {
-    const playable: YouTubePlayable = {
-      provider: 'youtube',
-      videoId: v.videoId,
-      title: v.title,
-      channel: v.channel,
-      image: v.thumbnail
-    };
-    this.player.play(playable, false);
+  toggleMute(): void {
+    this.playerService.toggleMute();
   }
 
-  enqueueSpotifyTrack(t: any) {
-    const playable: SpotifyPlayable = {
-      provider: 'spotify',
-      uri: t.uri,
-      id: t.id,
-      title: t.name,
-      artists: t.artists || [],
-      album: t.album,
-      durationMs: t.durationMs,
-      image: t.image
-    };
-    this.player.play(playable, true);
+  setVolume(event: Event): void {
+    const target = event.target as HTMLInputElement;
+    this.playerService.setVolume(parseFloat(target.value));
   }
 
-  enqueueYouTubeVideo(v: any) {
-    const playable: YouTubePlayable = {
-      provider: 'youtube',
-      videoId: v.videoId,
-      title: v.title,
-      channel: v.channel,
-      image: v.thumbnail
-    };
-    this.player.play(playable, true);
-  }
-
-  selectYouTubeVideo(v: any) { // fallback kept (may be used elsewhere)
-    this.playYouTubeVideo(v);
-  }
-
-  youtubeEmbedUrl() { return ''; }
-
-  doSearch(ev: Event) {
-    ev.preventDefault();
-    if (!this.sessionId() || !this.searchQuery.trim()) return;
-    this.searching = true;
-    const headers = this.authHeaders();
-    const tasks: Promise<any>[] = [];
-    if (this.searchProvider === 'spotify' || this.searchProvider === 'both') {
-      tasks.push(this.http.get<{items:any[]}>(`${this.backendBase}/api/spotify/search`, { headers, params: { query: this.searchQuery, limit: 10 } }).toPromise());
-    } else {
-      this.spotifyResults.set([]);
-    }
-    if (this.searchProvider === 'youtube' || this.searchProvider === 'both') {
-      tasks.push(this.http.get<{items:any[]}>(`${this.backendBase}/api/youtube/search`, { headers, params: { query: this.searchQuery, limit: 10 } }).toPromise());
-    } else {
-      this.youtubeResults.set([]);
-    }
-    Promise.allSettled(tasks).then(results => {
-      // Order of tasks corresponds to providers conditionally
-      let spotifyHandled = false;
-      for (const res of results) {
-        if (res.status === 'fulfilled' && res.value && Array.isArray(res.value.items)) {
-          // Decide if it is spotify or youtube by shape heuristics
-          if (!spotifyHandled && res.value.items.length && res.value.items[0].uri) {
-            this.spotifyResults.set(res.value.items);
-            spotifyHandled = true;
-          } else if (res.value.items.length && (res.value.items[0].videoId || res.value.items[0].thumbnail !== undefined)) {
-            this.youtubeResults.set(res.value.items);
-          } else if (!spotifyHandled && this.searchProvider === 'spotify') {
-            this.spotifyResults.set(res.value.items);
-            spotifyHandled = true;
-          } else if (this.searchProvider === 'youtube') {
-            this.youtubeResults.set(res.value.items);
-          }
-        } else if (res.status === 'rejected') {
-          // Handle API errors
-          const error = res.reason;
-          if (error?.status === 401) {
-            console.warn('Search API not available (authentication required):', error.url);
-            if (error.url?.includes('/youtube/')) {
-              console.log('YouTube search requires YouTube connection. Connect YouTube Music in the sidebar to enable search.');
-            }
-            if (error.url?.includes('/spotify/')) {
-              console.log('Spotify search requires Spotify connection. Connect Spotify in the sidebar to enable search.');
-            }
-          } else {
-            console.error('Search API error:', error);
-          }
-        }
-      }
-    }).finally(() => this.searching = false);
-  }
-
-  private startProgressLoop() { /* disabled for now */ }
-
-  formatDuration(ms: number): string {
-    if (!ms) return '-';
-    const totalSeconds = Math.floor(ms / 1000);
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-  }
-
-  // Playlist navigation methods
-  clearPlaylistSelection() {
-    this.selectedPlaylist.set(null);
-    this.playlistTracks.set([]);
-    this.playlistProvider.set(null);
-    this.viewingLikedSongs.set(false);
-  }
-
-  showLikedSongs(): void {
-    this.clearPlaylistSelection();
-    this.viewingLikedSongs.set(true);
-    this.playlistTracks.set(this.likedSongs.likedTracks());
-    this.closeMobileSidebar();
-  }
-
-  playPlaylistFromStart() {
-    if (!this.playlistTracks().length) return;
-    const firstTrack = this.playlistTracks()[0];
-    this.playPlaylistTrack(firstTrack, 0);
-  }
-
-  playPlaylistTrack(track: any, index: number) {
-    if (this.viewingLikedSongs()) {
-      // Liked songs have their provider stored
-      if (track.provider === 'spotify') {
-        const spotifyTrack = {
-          id: track.id,
-          name: track.title,
-          artists: [track.artist],
-          album: track.album,
-          uri: track.uri,
-          durationMs: track.durationMs,
-          image: track.image,
-          provider: 'spotify'
-        };
-        this.playSpotifyTrack(spotifyTrack);
-      } else if (track.provider === 'youtube') {
-        const youtubeTrack = {
-          videoId: track.videoId || track.id,
-          title: track.title,
-          channel: track.artist,
-          thumbnail: track.image,
-          provider: 'youtube'
-        };
-        this.playYouTubeVideo(youtubeTrack);
-      }
-    } else if (this.playlistProvider() === 'spotify') {
-      this.playSpotifyTrack(track.track || track);
-    } else if (this.playlistProvider() === 'youtube') {
-      this.playYouTubeVideo(track);
+  toggleQueue(): void {
+    this.queueVisible = !this.queueVisible;
+    if (this.queuePanel) {
+      this.queuePanel.toggle();
     }
   }
 
-  enqueuePlaylistTrack(track: any) {
-    if (this.viewingLikedSongs()) {
-      // Similar logic for enqueuing liked songs
-      if (track.provider === 'spotify') {
-        const spotifyTrack = {
-          id: track.id,
-          name: track.title,
-          artists: [track.artist],
-          album: track.album,
-          uri: track.uri,
-          durationMs: track.durationMs,
-          image: track.image,
-          provider: 'spotify'
-        };
-        this.enqueueSpotifyTrack(spotifyTrack);
-      } else if (track.provider === 'youtube') {
-        const youtubeTrack = {
-          videoId: track.videoId || track.id,
-          title: track.title,
-          channel: track.artist,
-          thumbnail: track.image,
-          provider: 'youtube'
-        };
-        this.enqueueYouTubeVideo(youtubeTrack);
-      }
-    } else if (this.playlistProvider() === 'spotify') {
-      this.enqueueSpotifyTrack(track.track || track);
-    } else if (this.playlistProvider() === 'youtube') {
-      this.enqueueYouTubeVideo(track);
-    }
+  toggleDevices(): void {
+    console.log("Toggle devices");
   }
 
-  getTrackTitle(track: any): string {
-    if (this.viewingLikedSongs()) {
-      return track.title || 'Unknown Track';
-    } else if (this.playlistProvider() === 'spotify') {
-      return track.track?.name || track.name || 'Unknown Track';
-    } else {
-      return track.title || 'Unknown Track';
-    }
+  toggleFullscreen(): void {
+    console.log("Toggle fullscreen");
   }
 
-  getTrackArtist(track: any): string {
-    if (this.viewingLikedSongs()) {
-      return track.artist || 'Unknown Artist';
-    } else if (this.playlistProvider() === 'spotify') {
-      const artists = track.track?.artists || track.artists;
-      return artists?.join(', ') || 'Unknown Artist';
-    } else {
-      return track.channel || 'YouTube';
-    }
+  formatTime(seconds: number): string {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
   }
 
-  getTrackAlbum(track: any): string {
-    if (this.viewingLikedSongs()) {
-      return track.album || track.provider === 'youtube' ? 'YouTube' : '-';
-    } else if (this.playlistProvider() === 'spotify') {
-      return track.track?.album || track.album || '-';
-    } else {
-      return 'YouTube';
-    }
+  // Content
+  loadRecentlyPlayed(): void {
+    // TODO: Load from MusicService
+    // this.musicService.recentlyPlayedList() can be used with signals
   }
 
-  getTrackDuration(track: any): string {
-    if (this.viewingLikedSongs()) {
-      return track.durationMs ? this.formatDuration(track.durationMs) : '-';
-    } else if (this.playlistProvider() === 'spotify') {
-      const ms = track.track?.durationMs || track.durationMs;
-      return this.formatDuration(ms);
-    } else {
-      return '-';
-    }
+  playTrack(track: Track): void {
+    this.playerService.play(track);
   }
 
-  // Universal like functionality for track lists
-  isTrackLiked(track: any, provider: 'spotify' | 'youtube'): boolean {
-    const trackId = provider === 'spotify' ? track.id : (track.videoId || track.id);
-    return this.likedSongs.isLiked(trackId, provider);
+  // Queue management
+  addToQueue(track: Track): void {
+    this.playerService.addToQueue(track);
+    this.toastService.success("Added to queue", track.title);
   }
 
-  async toggleTrackLike(track: any, provider: 'spotify' | 'youtube'): Promise<void> {
-    await this.likedSongs.toggleLikeServer(track, provider);
+  playNext(track: Track): void {
+    this.playerService.playNext(track);
+    this.toastService.success("Playing next", track.title);
   }
-
-  isPlaylistTrackLiked(track: any): boolean {
-    if (this.viewingLikedSongs()) {
-      return true; // All tracks in liked songs are by definition liked
-    }
-    const provider = this.playlistProvider();
-    if (!provider) return false;
-    return this.isTrackLiked(track.track || track, provider);
-  }
-
-  togglePlaylistTrackLike(track: any): void {
-    if (this.viewingLikedSongs()) {
-      // Remove from liked songs
-      this.likedSongs.toggleLike(track, track.provider);
-      // Update the displayed list
-      this.playlistTracks.set(this.likedSongs.likedTracks());
-    } else {
-      const provider = this.playlistProvider();
-      if (!provider) return;
-      this.toggleTrackLike(track.track || track, provider);
-    }
-  }
-
-  // Bottom bar helpers removed; bottom player component interacts with PlayerService directly.
 }
