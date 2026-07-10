@@ -2327,21 +2327,86 @@ import { Track, RepeatMode } from "./core/models";
       @media (max-width: 767px) {
         .app-shell {
           grid-template-columns: 1fr;
-          grid-template-rows: var(--header-height) 1fr var(--player-height);
+          grid-template-rows: var(--header-height) 1fr var(--player-height) 64px;
         }
 
         .sidebar {
+          grid-row: 4;
+          grid-column: 1;
+          display: flex;
+          flex-direction: row;
+          width: 100%;
+          border-right: none;
+          border-top: 1px solid var(--surface-border);
+          z-index: 100;
+          background: var(--surface-elevated);
+          padding: 0;
+        }
+
+        .sidebar-header {
+          display: none;
+        }
+        
+        .sidebar-nav {
+          display: flex;
+          flex-direction: row;
+          width: 100%;
+          justify-content: space-around;
+          align-items: center;
+          padding: 0;
+          gap: 0;
+          overflow: hidden;
+        }
+
+        .nav-section {
+          display: flex;
+          flex-direction: row;
+          width: 100%;
+          justify-content: space-around;
+          margin-bottom: 0;
+        }
+
+        /* Hide playlists section on mobile to save space */
+        .nav-section:nth-child(2) {
+          display: none; 
+        }
+
+        .nav-section-title {
           display: none;
         }
 
+        .nav-item {
+          flex-direction: column;
+          padding: var(--space-2);
+          gap: 4px;
+          border-radius: 0;
+        }
+
+        .nav-item.active {
+          background: transparent;
+          color: var(--brand-primary);
+        }
+
+        .nav-label {
+          display: block !important;
+          font-size: 10px;
+        }
+
         .player-bar {
+          grid-row: 3;
           grid-column: 1;
           grid-template-columns: 1fr auto;
           gap: var(--space-3);
-          padding: var(--space-2) var(--space-4);
+          padding: var(--space-2) var(--space-3);
+          border-top: 1px solid var(--surface-border);
         }
 
         .player-controls {
+          display: flex;
+          width: auto;
+        }
+
+        .playback-bar {
           display: none;
         }
 
