@@ -25,13 +25,15 @@
 /* ==========================================================================
    1. CSS Custom Properties (Theme Variables)
    ========================================================================== */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Righteous&display=swap');
+
 
 :root {
     /* === Base Colors === */
-    --color-bg-primary: #050507;
-    --color-bg-secondary: #0a0a0f;
-    --color-bg-tertiary: #12121a;
-    --color-bg-elevated: #1a1a25;
+    --color-bg-primary: #0F0F23;
+    --color-bg-secondary: #1E1B4B;
+    --color-bg-tertiary: #27273B;
+    --color-bg-elevated: #312E81;
 
     /* === Aurora Palette === */
     --aurora-purple: #a855f7;
@@ -63,11 +65,11 @@
     --dynamic-muted-rgb: 59, 130, 246;
 
     /* === Text Colors === */
-    --text-primary: #ffffff;
-    --text-secondary: rgba(255, 255, 255, 0.75);
-    --text-tertiary: rgba(255, 255, 255, 0.55);
-    --text-muted: rgba(255, 255, 255, 0.35);
-    --text-inverse: #050507;
+    --text-primary: #F8FAFC;
+    --text-secondary: rgba(248, 250, 252, 0.75);
+    --text-tertiary: rgba(248, 250, 252, 0.55);
+    --text-muted: rgba(248, 250, 252, 0.35);
+    --text-inverse: #0F0F23;
 
     /* === Surface Colors === */
     --surface-glass: rgba(255, 255, 255, 0.03);
@@ -204,9 +206,9 @@
 
     /* === Typography Scale === */
     --font-family-sans:
-        "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+        "Poppins", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
         sans-serif;
-    --font-family-display: "Space Grotesk", var(--font-family-sans);
+    --font-family-display: "Righteous", var(--font-family-sans);
     --font-family-mono: "JetBrains Mono", "Fira Code", monospace;
 
     --text-xs: 0.75rem;
